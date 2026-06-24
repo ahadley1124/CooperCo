@@ -1,0 +1,7 @@
+target/
+**/target/
+frontend/dist/
+backend/.env
+.env
+.DS_Store
+Thumbs.db
