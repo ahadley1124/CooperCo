@@ -1,76 +1,284 @@
-mod api;
-
+use gloo_net::http::Request;
+use serde::{Deserialize, Serialize};
 use wasm_bindgen_futures::spawn_local;
+use web_sys::{HtmlInputElement, HtmlTextAreaElement};
 use yew::prelude::*;
+
+#[derive(Clone, Debug, PartialEq, Deserialize)]
+struct SiteContent {
+    business: Business,
+    stats: Vec<Stat>,
+    services: Vec<Service>,
+    updates: Vec<Update>,
+    gallery: Vec<GalleryImage>,
+}
+
+#[derive(Clone, Debug, PartialEq, Deserialize)]
+struct Business {
+    name: String,
+    category: String,
+    location: String,
+    phone: String,
+    email: String,
+    facebook_url: String,
+    yelp_url: String,
+    intro: String,
+    hero_image: String,
+}
+
+#[derive(Clone, Debug, PartialEq, Deserialize)]
+struct Stat {
+    label: String,
+    value: String,
+}
+
+#[derive(Clone, Debug, PartialEq, Deserialize)]
+struct Service {
+    title: String,
+    summary: String,
+}
+
+#[derive(Clone, Debug, PartialEq, Deserialize)]
+struct Update {
+    title: String,
+    summary: String,
+    source_label: String,
+}
+
+#[derive(Clone, Debug, PartialEq, Deserialize)]
+struct GalleryImage {
+    src: String,
+    alt: String,
+}
+
+#[derive(Clone, Debug, Default, Serialize)]
+struct InquiryForm {
+    name: String,
+    email: String,
+    phone: String,
+    pet_name: String,
+    message: String,
+}
 
 #[function_component(App)]
 fn app() -> Html {
-    let health = use_state(|| String::from("loading..."));
-    let customers = use_state(Vec::new);
-    let error = use_state(|| None::<String>);
+    let content = use_state(|| None::<SiteContent>);
+    let load_error = use_state(|| None::<String>);
+    let form = use_state(InquiryForm::default);
+    let submit_state = use_state(|| "idle".to_owned());
 
     {
-        let health = health.clone();
-        let customers = customers.clone();
-        let error = error.clone();
-
+        let content = content.clone();
+        let load_error = load_error.clone();
         use_effect_with((), move |_| {
             spawn_local(async move {
-                match api::fetch_health().await {
-                    Ok(status) => health.set(status),
-                    Err(err) => {
-                        error.set(Some(format!("health check failed: {err}")));
-                        return;
-                    }
-                }
-
-                match api::fetch_customers().await {
-                    Ok(items) => customers.set(items),
-                    Err(err) => error.set(Some(format!("customer fetch failed: {err}"))),
+                match Request::get("/api/site").send().await {
+                    Ok(response) if response.ok() => match response.json::<SiteContent>().await {
+                        Ok(site) => content.set(Some(site)),
+                        Err(error) => load_error.set(Some(error.to_string())),
+                    },
+                    Ok(response) => load_error.set(Some(format!(
+                        "Content request failed with status {}",
+                        response.status()
+                    ))),
+                    Err(error) => load_error.set(Some(error.to_string())),
                 }
             });
-
             || ()
         });
     }
 
+    let update_field = {
+        let form = form.clone();
+        move |field: &'static str| {
+            let form = form.clone();
+            Callback::from(move |event: InputEvent| {
+                let value = event
+                    .target_dyn_into::<HtmlInputElement>()
+                    .map(|input| input.value())
+                    .or_else(|| {
+                        event
+                            .target_dyn_into::<HtmlTextAreaElement>()
+                            .map(|textarea| textarea.value())
+                    })
+                    .unwrap_or_default();
+
+                let mut next = (*form).clone();
+                match field {
+                    "name" => next.name = value,
+                    "email" => next.email = value,
+                    "phone" => next.phone = value,
+                    "pet_name" => next.pet_name = value,
+                    "message" => next.message = value,
+                    _ => {}
+                }
+                form.set(next);
+            })
+        }
+    };
+
+    let onsubmit = {
+        let form = form.clone();
+        let submit_state = submit_state.clone();
+        Callback::from(move |event: SubmitEvent| {
+            event.prevent_default();
+            let payload = (*form).clone();
+            let form = form.clone();
+            let submit_state = submit_state.clone();
+
+            submit_state.set("sending".to_owned());
+            spawn_local(async move {
+                let builder =
+                    Request::post("/api/inquiries").header("Content-Type", "application/json");
+                let request = match builder.json(&payload) {
+                    Ok(request) => request,
+                    Err(error) => {
+                        submit_state.set(format!("Could not prepare inquiry: {error}"));
+                        return;
+                    }
+                };
+
+                match request.send().await {
+                    Ok(response) if response.ok() => {
+                        form.set(InquiryForm::default());
+                        submit_state.set("sent".to_owned());
+                    }
+                    Ok(response) => submit_state.set(format!(
+                        "Please check the form. Status {}",
+                        response.status()
+                    )),
+                    Err(error) => submit_state.set(format!("Could not send inquiry: {error}")),
+                }
+            });
+        })
+    };
+
+    let Some(site) = (*content).clone() else {
+        return html! {
+            <div class="loading">
+                <div class="mark">{"C&Co"}</div>
+                <p>{load_error.as_ref().cloned().unwrap_or_else(|| "Loading Cooper & Co.".to_owned())}</p>
+            </div>
+        };
+    };
+
     html! {
         <>
-            <h1>{ "Cooper & Co." }</h1>
-            <p>{ "Yew frontend calling Rocket API endpoints." }</p>
+            <header class="topbar">
+                <a class="brand" href="#top" aria-label="Cooper and Co home">
+                    <span class="brand-mark">{"C&Co"}</span>
+                    <span>{site.business.name.clone()}</span>
+                </a>
+                <nav aria-label="Main navigation">
+                    <a href="#services">{"Services"}</a>
+                    <a href="#updates">{"Updates"}</a>
+                    <a href="#contact">{"Contact"}</a>
+                </nav>
+            </header>
 
-            <section class="card">
-                <h2>{ "API Health" }</h2>
-                <p>{ format!("Status: {}", (*health).as_str()) }</p>
+            <section id="top" class="hero">
+                <img class="hero-image" src={site.business.hero_image.clone()} alt="Cooper & Co. pets and services" />
+                <div class="hero-copy">
+                    <p class="eyebrow">{format!("{} in {}", site.business.category, site.business.location)}</p>
+                    <h1>{site.business.name.clone()}</h1>
+                    <p>{site.business.intro.clone()}</p>
+                    <div class="hero-actions">
+                        <a class="button primary" href="#contact">{"Request information"}</a>
+                        <a class="button secondary" href={format!("tel:{}", site.business.phone.replace([' ', '(', ')', '-'], ""))}>{site.business.phone.clone()}</a>
+                    </div>
+                </div>
             </section>
 
-            <section class="card">
-                <h2>{ "Sample Customers" }</h2>
-                {
-                    if let Some(message) = &*error {
-                        html! { <p>{ message }</p> }
-                    } else if customers.is_empty() {
-                        html! { <p>{ "No customers returned yet." }</p> }
-                    } else {
-                        html! {
-                            <ul>
-                                { for customers.iter().map(|customer| html! {
-                                    <li>
-                                        <strong>{ &customer.name }</strong>
-                                        {
-                                            if let Some(email) = &customer.contact_email {
-                                                html! { <span>{ format!(" ({email})") }</span> }
-                                            } else {
-                                                Html::default()
-                                            }
-                                        }
-                                    </li>
-                                }) }
-                            </ul>
-                        }
-                    }
-                }
+            <section class="stats" aria-label="Facebook profile stats">
+                {for site.stats.iter().map(|stat| html! {
+                    <div class="stat">
+                        <strong>{stat.value.clone()}</strong>
+                        <span>{stat.label.clone()}</span>
+                    </div>
+                })}
             </section>
+
+            <section id="services" class="section">
+                <div class="section-heading">
+                    <p class="eyebrow">{"What is available"}</p>
+                    <h2>{"Pet services with direct local contact"}</h2>
+                </div>
+                <div class="service-grid">
+                    {for site.services.iter().map(|service| html! {
+                        <article class="card">
+                            <h3>{service.title.clone()}</h3>
+                            <p>{service.summary.clone()}</p>
+                        </article>
+                    })}
+                </div>
+            </section>
+
+            <section id="updates" class="section split">
+                <div>
+                    <p class="eyebrow">{"Latest public update"}</p>
+                    <h2>{"Class news from Cooper & Co."}</h2>
+                </div>
+                <div class="updates">
+                    {for site.updates.iter().map(|update| html! {
+                        <article class="update">
+                            <span>{update.source_label.clone()}</span>
+                            <h3>{update.title.clone()}</h3>
+                            <p>{update.summary.clone()}</p>
+                            <a href={site.business.facebook_url.clone()} target="_blank" rel="noreferrer">{"Open Facebook page"}</a>
+                        </article>
+                    })}
+                </div>
+            </section>
+
+            <section class="gallery" aria-label="Cooper and Co photo preview">
+                {for site.gallery.iter().map(|image| html! {
+                    <img src={image.src.clone()} alt={image.alt.clone()} />
+                })}
+            </section>
+
+            <section id="contact" class="section contact">
+                <div class="contact-copy">
+                    <p class="eyebrow">{"Contact"}</p>
+                    <h2>{"Ask about classes or pet support"}</h2>
+                    <a href={format!("mailto:{}", site.business.email)}>{site.business.email.clone()}</a>
+                    <a href={format!("tel:{}", site.business.phone.replace([' ', '(', ')', '-'], ""))}>{site.business.phone.clone()}</a>
+                    <a href={site.business.yelp_url.clone()} target="_blank" rel="noreferrer">{"Yelp listing"}</a>
+                </div>
+                <form onsubmit={onsubmit}>
+                    <label>
+                        {"Name"}
+                        <input value={form.name.clone()} oninput={update_field("name")} required=true />
+                    </label>
+                    <label>
+                        {"Email"}
+                        <input r#type="email" value={form.email.clone()} oninput={update_field("email")} required=true />
+                    </label>
+                    <label>
+                        {"Phone"}
+                        <input value={form.phone.clone()} oninput={update_field("phone")} />
+                    </label>
+                    <label>
+                        {"Pet name"}
+                        <input value={form.pet_name.clone()} oninput={update_field("pet_name")} />
+                    </label>
+                    <label class="wide">
+                        {"Message"}
+                        <textarea value={form.message.clone()} oninput={update_field("message")} required=true />
+                    </label>
+                    <button class="button primary" type="submit" disabled={*submit_state == "sending"}>{"Send inquiry"}</button>
+                    <p class="form-status">{match submit_state.as_str() {
+                        "idle" => "",
+                        "sending" => "Sending...",
+                        "sent" => "Inquiry sent.",
+                        other => other,
+                    }}</p>
+                </form>
+            </section>
+
+            <footer>
+                <span>{format!("{} · {}", site.business.name, site.business.location)}</span>
+                <a href={site.business.facebook_url} target="_blank" rel="noreferrer">{"Facebook"}</a>
+            </footer>
         </>
     }
 }
