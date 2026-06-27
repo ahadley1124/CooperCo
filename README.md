@@ -1,85 +1,59 @@
-# CooperCo
+# Cooper & Co. Website
 
-Website for Bethany's company
+Rust workspace for a Cooper & Co. pet-service website:
 
-## Building
+- `frontend`: Yew single-page app built with Trunk.
+- `backend`: Rocket API and static-file server.
+- SurrealDB-ready inquiry storage with a memory fallback when DB env vars are not configured.
 
-This website is built using Rust with WASM.
-# Cooper & Co. Rust Starter
+## Public Facebook Details Used
 
-Minimal full-stack Rust workspace template:
+The initial content was taken from the public Facebook page at `https://www.facebook.com/CooperAndCoPet`:
 
-- `frontend`: Yew app (served with Trunk)
-- `backend`: Rocket API + backend-only SurrealDB access
+- Name: Cooper & Co.
+- Category: Pet Service
+- Location: Lorain County, OH
+- Phone: `(440) 276-1716`
+- Email: `cooper.copetservices@gmail.com`
+- Yelp listing: `https://m.yelp.com/biz/cooper-and-company-elyria`
+- Visible stats: 177 likes and 177 followers
+- Visible update: summer group classes announcement from May 10
 
-The frontend calls HTTP endpoints on the backend. It never connects to SurrealDB directly.
+## Run Locally
 
-## Project Structure
-
-```text
-.
-├── Cargo.toml            # Workspace manifest
-├── backend/
-│   ├── .env.example
-│   ├── Cargo.toml
-│   └── src/
-│       ├── config.rs
-│       ├── db.rs
-│       ├── main.rs
-│       ├── models.rs
-│       └── routes.rs
-└── frontend/
-    ├── Cargo.toml
-    ├── Trunk.toml
-    ├── index.html
-    └── src/
-        ├── api.rs
-        └── main.rs
-```
-
-## Prerequisites
-
-- Rust (stable)
-- `trunk` (`cargo install trunk`)
-- `wasm32` target (`rustup target add wasm32-unknown-unknown`)
-- External SurrealDB instance reachable from backend
-
-## Backend Setup
-
-1. Copy environment template:
-
-   PowerShell:
-
-   ```powershell
-   Copy-Item backend/.env.example backend/.env
-   ```
-
-2. Update `backend/.env` values for your external SurrealDB instance.
-
-## Run Backend
+Install the WASM target if needed:
 
 ```powershell
+rustup target add wasm32-unknown-unknown
+```
+
+Build the frontend:
+
+```powershell
+cd frontend
+trunk build
+```
+
+Run the backend:
+
+```powershell
+cd ../backend
+cargo run
+```
+
+Open `http://127.0.0.1:8080`.
+
+## SurrealDB Configuration
+
+When you have SurrealDB set up, provide these env vars before starting Rocket:
+
+```powershell
+$env:SURREALDB_URL = "127.0.0.1:8000"
+$env:SURREALDB_NS = "cooperco"
+$env:SURREALDB_DB = "website"
+$env:SURREALDB_USER = "root"
+$env:SURREALDB_PASS = "root"
 cargo run -p backend
 ```
 
-Backend listens on `http://127.0.0.1:8000` and exposes:
-
-- `GET /api/health`
-- `GET /api/customers`
-
-## Run Frontend
-
-In a second terminal:
-
-```powershell
-trunk serve --config frontend/Trunk.toml
-```
-
-Frontend is available at `http://127.0.0.1:8080` and proxies `/api/*` to the backend.
-
-## Extend Next
-
-- Add auth (JWT/session) and protect backend routes.
-- Add POST/PUT/DELETE API routes for customer management.
-- Add explicit schema/migration flow for SurrealDB records.
-- Add deployment manifests (container, reverse proxy, hosted DB config).
+Without `SURREALDB_URL`, inquiries are stored in memory for the current process.
