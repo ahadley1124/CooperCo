@@ -1,18 +1,10 @@
-# CooperCo
+# Cooper & Co. Website
 
-Website for Bethany's company
+Rust workspace for a Cooper & Co. pet-service website:
 
-## Building
-
-This website is built using Rust with WASM.
-# Cooper & Co. Rust Starter
-
-Minimal full-stack Rust workspace template:
-
-- `frontend`: Yew app (served with Trunk)
-- `backend`: Rocket API + backend-only SurrealDB access
-
-The frontend calls HTTP endpoints on the backend. It never connects to SurrealDB directly.
+- `frontend`: Yew single-page app built with Trunk.
+- `backend`: Rocket API and static-file server.
+- SurrealDB-ready inquiry storage with a memory fallback when DB env vars are not configured.
 
 ## Project Structure
 
@@ -42,34 +34,57 @@ The frontend calls HTTP endpoints on the backend. It never connects to SurrealDB
 - Rust (stable)
 - `trunk` (`cargo install trunk`)
 - `wasm32` target (`rustup target add wasm32-unknown-unknown`)
-- External SurrealDB instance reachable from backend
+- External SurrealDB instance reachable from backend, or use the built-in file-backed embedded database by leaving the remote credential env vars unset
 
 ## Backend Setup
 
 1. Copy environment template:
 
    PowerShell:
+## Public Facebook Details Used
 
-   ```powershell
-   Copy-Item backend/.env.example backend/.env
-   ```
+The initial content was taken from the public Facebook page at `https://www.facebook.com/CooperAndCoPet`:
 
-2. Update `backend/.env` values for your external SurrealDB instance.
+- Name: Cooper & Co.
+- Category: Pet Service
+- Location: Lorain County, OH
+- Phone: `(440) 276-1716`
+- Email: `cooper.copetservices@gmail.com`
+- Yelp listing: `https://m.yelp.com/biz/cooper-and-company-elyria`
+- Visible stats: 177 likes and 177 followers
+- Visible update: summer group classes announcement from May 10
 
-## Run Backend
+## Run Locally
+
+Install the WASM target if needed:
 
 ```powershell
-cargo run -p backend
+rustup target add wasm32-unknown-unknown
 ```
 
-Backend listens on `http://127.0.0.1:8000` and exposes:
+Build the frontend:
 
-- `GET /api/health`
-- `GET /api/customers`
+```powershell
+cd frontend
+trunk build
+```
 
-## Run Frontend
+2. To use the built-in file-backed database, leave `SURREALDB_USERNAME` and `SURREALDB_PASSWORD` unset and keep `SURREALDB_PATH` pointed at a writable folder.
+3. To use an external SurrealDB instance, populate all SurrealDB env vars in `backend/.env`.
 
-In a second terminal:
+## Run Backend
+Run the backend:
+
+```powershell
+cd ../backend
+cargo run
+```
+
+Open `http://127.0.0.1:8080`.
+
+## SurrealDB Configuration
+
+When you have SurrealDB set up, provide these env vars before starting Rocket:
 
 ```powershell
 trunk serve --config frontend/Trunk.toml

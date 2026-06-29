@@ -4,5 +4,6 @@ resolver = "2"
 
 [workspace.package]
 edition = "2021"
+authors = ["ahadley1124"]
 license = "MIT"
 version = "0.1.0"
