@@ -386,7 +386,10 @@ dependencies = [
  "anyhow",
  "rocket",
  "serde",
+ "serde_json",
  "surrealdb",
+ "tokio",
+ "uuid",
 ]
 
 [[package]]
