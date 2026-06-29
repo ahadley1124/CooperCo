@@ -15,6 +15,7 @@ use serde::{Deserialize, Serialize};
 use surrealdb::{
     engine::remote::ws::{Client, Ws},
     opt::auth::Root,
+    types::SurrealValue,
     Surreal,
 };
 use tokio::sync::RwLock;
@@ -75,7 +76,8 @@ struct GalleryImage {
     alt: String,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, SurrealValue)]
+#[surreal(crate = "surrealdb::types")]
 struct Inquiry {
     id: Uuid,
     name: String,
@@ -196,8 +198,8 @@ async fn connect_store() -> Store {
             if let (Some(username), Some(password)) = (username, password) {
                 if let Err(error) = db
                     .signin(Root {
-                        username: &username,
-                        password: &password,
+                        username,
+                        password,
                     })
                     .await
                 {
