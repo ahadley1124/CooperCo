@@ -83,14 +83,31 @@ struct Inquiry {
 
 #[function_component(App)]
 fn app() -> Html {
-    if web_sys::window()
-        .and_then(|window| window.location().pathname().ok())
-        .as_deref()
-        == Some("/admin")
-    {
-        return html! { <AdminPage /> };
+    match current_route() {
+        AppRoute::Admin => html! { <AdminPage /> },
+        AppRoute::Public => html! { <PublicPage /> },
     }
+}
 
+enum AppRoute {
+    Admin,
+    Public,
+}
+
+fn current_route() -> AppRoute {
+    let path = web_sys::window()
+        .and_then(|window| window.location().pathname().ok())
+        .unwrap_or_default();
+
+    if path.trim_end_matches('/') == "/admin" {
+        AppRoute::Admin
+    } else {
+        AppRoute::Public
+    }
+}
+
+#[function_component(PublicPage)]
+fn public_page() -> Html {
     let content = use_state(|| None::<SiteContent>);
     let load_error = use_state(|| None::<String>);
     let form = use_state(InquiryForm::default);
