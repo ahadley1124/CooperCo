@@ -60,8 +60,37 @@ struct InquiryForm {
     message: String,
 }
 
+#[derive(Clone, Debug, Default, Serialize)]
+struct AdminLogin {
+    username: String,
+    password: String,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+struct AdminLoginResponse {
+    token: String,
+}
+
+#[derive(Clone, Debug, PartialEq, Deserialize)]
+struct Inquiry {
+    id: String,
+    name: String,
+    email: String,
+    phone: String,
+    pet_name: String,
+    message: String,
+}
+
 #[function_component(App)]
 fn app() -> Html {
+    if web_sys::window()
+        .and_then(|window| window.location().pathname().ok())
+        .as_deref()
+        == Some("/admin")
+    {
+        return html! { <AdminPage /> };
+    }
+
     let content = use_state(|| None::<SiteContent>);
     let load_error = use_state(|| None::<String>);
     let form = use_state(InquiryForm::default);
@@ -285,4 +314,207 @@ fn app() -> Html {
 
 fn main() {
     yew::Renderer::<App>::new().render();
+}
+
+#[function_component(AdminPage)]
+fn admin_page() -> Html {
+    let login = use_state(AdminLogin::default);
+    let inquiries = use_state(Vec::<Inquiry>::new);
+    let status = use_state(|| None::<String>);
+    let admin_token = use_state(|| None::<String>);
+
+    let update_field = {
+        let login = login.clone();
+        move |field: &'static str| {
+            let login = login.clone();
+            Callback::from(move |event: InputEvent| {
+                let value = event
+                    .target_dyn_into::<HtmlInputElement>()
+                    .map(|input| input.value())
+                    .unwrap_or_default();
+
+                let mut next = (*login).clone();
+                match field {
+                    "username" => next.username = value,
+                    "password" => next.password = value,
+                    _ => {}
+                }
+                login.set(next);
+            })
+        }
+    };
+
+    let onsubmit = {
+        let login = login.clone();
+        let inquiries = inquiries.clone();
+        let status = status.clone();
+        let admin_token = admin_token.clone();
+
+        Callback::from(move |event: SubmitEvent| {
+            event.prevent_default();
+            let credentials = (*login).clone();
+            let inquiries = inquiries.clone();
+            let status = status.clone();
+            let admin_token = admin_token.clone();
+
+            status.set(Some("Signing in...".to_owned()));
+            spawn_local(async move {
+                match admin_login(credentials).await {
+                    Ok(token) => match fetch_admin_inquiries(&token).await {
+                        Ok(items) => {
+                            inquiries.set(items);
+                            admin_token.set(Some(token));
+                            status.set(None);
+                        }
+                        Err(error) => status.set(Some(error)),
+                    },
+                    Err(error) => status.set(Some(error)),
+                }
+            });
+        })
+    };
+
+    let onrefresh = {
+        let admin_token = admin_token.clone();
+        let inquiries = inquiries.clone();
+        let status = status.clone();
+
+        Callback::from(move |_| {
+            let token = (*admin_token).clone();
+            let inquiries = inquiries.clone();
+            let status = status.clone();
+            let admin_token = admin_token.clone();
+
+            let Some(token) = token else {
+                status.set(Some("Sign in again to refresh inquiries.".to_owned()));
+                return;
+            };
+
+            status.set(Some("Refreshing inquiries...".to_owned()));
+            spawn_local(async move {
+                match fetch_admin_inquiries(&token).await {
+                    Ok(items) => {
+                        inquiries.set(items);
+                        status.set(None);
+                    }
+                    Err(error) => {
+                        if error.starts_with("Sign in again") {
+                            admin_token.set(None);
+                        }
+                        status.set(Some(error));
+                    }
+                }
+            });
+        })
+    };
+
+    html! {
+        <main class="admin-shell">
+            <section class="admin-panel">
+                <div class="admin-heading">
+                    <span class="brand-mark">{"C&Co"}</span>
+                    <div>
+                        <p class="eyebrow">{"Admin"}</p>
+                        <h1>{"Contact requests"}</h1>
+                    </div>
+                </div>
+
+                if admin_token.is_none() {
+                    <form class="admin-login" onsubmit={onsubmit}>
+                        <label>
+                            {"Username"}
+                            <input value={login.username.clone()} oninput={update_field("username")} autocomplete="username" required=true />
+                        </label>
+                        <label>
+                            {"Password"}
+                            <input r#type="password" value={login.password.clone()} oninput={update_field("password")} autocomplete="current-password" required=true />
+                        </label>
+                        <button class="button primary" type="submit">{"Sign in"}</button>
+                        <p class="form-status">{status.as_ref().cloned().unwrap_or_default()}</p>
+                    </form>
+                } else {
+                    <div class="admin-list">
+                        <div class="admin-list-header">
+                            <strong>{format!("{} contact request{}", inquiries.len(), if inquiries.len() == 1 { "" } else { "s" })}</strong>
+                            <button class="button primary" type="button" onclick={onrefresh}>{"Refresh"}</button>
+                        </div>
+                        <p class="form-status">{status.as_ref().cloned().unwrap_or_default()}</p>
+                        if inquiries.is_empty() {
+                            <p class="empty-state">{"No contact requests yet."}</p>
+                        } else {
+                            {for inquiries.iter().map(|inquiry| html! {
+                                <article class="inquiry-row">
+                                    <div>
+                                        <h2>{inquiry.name.clone()}</h2>
+                                        <p>{inquiry.message.clone()}</p>
+                                    </div>
+                                    <dl>
+                                        <div>
+                                            <dt>{"Email"}</dt>
+                                            <dd><a href={format!("mailto:{}", inquiry.email)}>{inquiry.email.clone()}</a></dd>
+                                        </div>
+                                        <div>
+                                            <dt>{"Phone"}</dt>
+                                            <dd>{empty_fallback(&inquiry.phone)}</dd>
+                                        </div>
+                                        <div>
+                                            <dt>{"Pet"}</dt>
+                                            <dd>{empty_fallback(&inquiry.pet_name)}</dd>
+                                        </div>
+                                    </dl>
+                                </article>
+                            })}
+                        }
+                    </div>
+                }
+            </section>
+        </main>
+    }
+}
+
+fn empty_fallback(value: &str) -> String {
+    if value.trim().is_empty() {
+        "Not provided".to_owned()
+    } else {
+        value.to_owned()
+    }
+}
+
+async fn admin_login(credentials: AdminLogin) -> Result<String, String> {
+    let request = Request::post("/api/admin/login")
+        .header("Content-Type", "application/json")
+        .json(&credentials)
+        .map_err(|error| format!("Could not prepare login: {error}"))?;
+
+    match request.send().await {
+        Ok(response) if response.ok() => response
+            .json::<AdminLoginResponse>()
+            .await
+            .map(|login| login.token)
+            .map_err(|error| format!("Could not read login response: {error}")),
+        Ok(response) if response.status() == 401 => Err("Invalid username or password.".to_owned()),
+        Ok(response) => Err(format!("Login failed with status {}.", response.status())),
+        Err(error) => Err(format!("Could not sign in: {error}")),
+    }
+}
+
+async fn fetch_admin_inquiries(token: &str) -> Result<Vec<Inquiry>, String> {
+    match Request::get("/api/admin/inquiries")
+        .header("Authorization", &format!("Bearer {token}"))
+        .send()
+        .await
+    {
+        Ok(response) if response.ok() => response
+            .json::<Vec<Inquiry>>()
+            .await
+            .map_err(|error| format!("Could not read inquiries: {error}")),
+        Ok(response) if response.status() == 401 => {
+            Err("Sign in again to view inquiries.".to_owned())
+        }
+        Ok(response) => Err(format!(
+            "Inquiry request failed with status {}.",
+            response.status()
+        )),
+        Err(error) => Err(format!("Could not load inquiries: {error}")),
+    }
 }

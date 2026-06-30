@@ -1,4 +1,4 @@
-use std::{env, path::PathBuf, sync::Arc};
+use std::{collections::HashSet, env, path::PathBuf, sync::Arc};
 
 use anyhow::Context;
 use rocket::{
@@ -6,6 +6,7 @@ use rocket::{
     get,
     http::Status,
     post,
+    request::{FromRequest, Outcome, Request},
     response::status,
     routes,
     serde::json::Json,
@@ -22,6 +23,26 @@ use tokio::sync::RwLock;
 use uuid::Uuid;
 
 type Db = Surreal<Client>;
+type AdminSessions = Arc<RwLock<HashSet<String>>>;
+
+struct AdminToken(String);
+
+#[rocket::async_trait]
+impl<'r> FromRequest<'r> for AdminToken {
+    type Error = ();
+
+    async fn from_request(request: &'r Request<'_>) -> Outcome<Self, Self::Error> {
+        match request
+            .headers()
+            .get_one("authorization")
+            .and_then(|value| value.strip_prefix("Bearer "))
+            .filter(|token| !token.is_empty())
+        {
+            Some(token) => Outcome::Success(AdminToken(token.to_owned())),
+            None => Outcome::Error((Status::Unauthorized, ())),
+        }
+    }
+}
 
 #[derive(Clone)]
 enum Store {
@@ -96,6 +117,17 @@ struct NewInquiry {
     message: String,
 }
 
+#[derive(Debug, Clone, Deserialize)]
+struct AdminLoginRequest {
+    username: String,
+    password: String,
+}
+
+#[derive(Debug, Serialize)]
+struct AdminLoginResponse {
+    token: String,
+}
+
 #[derive(Debug, Serialize)]
 struct Health {
     ok: bool,
@@ -155,6 +187,51 @@ async fn create_inquiry(
     }
 }
 
+#[post("/api/admin/login", format = "json", data = "<payload>")]
+async fn admin_login(
+    sessions: &State<AdminSessions>,
+    payload: Json<AdminLoginRequest>,
+) -> Result<Json<AdminLoginResponse>, status::Custom<String>> {
+    let credentials = payload.into_inner();
+
+    if !valid_admin_credentials(&credentials.username, &credentials.password) {
+        return Err(status::Custom(
+            Status::Unauthorized,
+            "invalid admin credentials".to_owned(),
+        ));
+    }
+
+    let token = Uuid::new_v4().to_string();
+    sessions.write().await.insert(token.clone());
+
+    Ok(Json(AdminLoginResponse { token }))
+}
+
+#[get("/api/admin/inquiries")]
+async fn admin_inquiries(
+    store: &State<Store>,
+    sessions: &State<AdminSessions>,
+    token: AdminToken,
+) -> Result<Json<Vec<Inquiry>>, status::Custom<String>> {
+    list_admin_inquiries(store, sessions, token).await
+}
+
+async fn list_admin_inquiries(
+    store: &State<Store>,
+    sessions: &State<AdminSessions>,
+    token: AdminToken,
+) -> Result<Json<Vec<Inquiry>>, status::Custom<String>> {
+    require_admin_token(sessions, &token).await?;
+
+    match store.inner() {
+        Store::Surreal(db) => {
+            let inquiries: Vec<Inquiry> = db.select("inquiry").await.map_err(server_error)?;
+            Ok(Json(inquiries))
+        }
+        Store::Memory(items) => Ok(Json(items.read().await.clone())),
+    }
+}
+
 #[get("/<_..>", rank = 20)]
 async fn spa_fallback() -> Option<NamedFile> {
     NamedFile::open(static_dir().join("index.html")).await.ok()
@@ -163,16 +240,25 @@ async fn spa_fallback() -> Option<NamedFile> {
 #[rocket::main]
 async fn main() -> anyhow::Result<()> {
     let store = connect_store().await;
+    let admin_sessions: AdminSessions = Arc::new(RwLock::new(HashSet::new()));
 
     rocket::build()
         .configure(Config {
-            port: 8080,
+            port: 9001,
             ..Config::debug_default()
         })
         .manage(store)
+        .manage(admin_sessions)
         .mount(
             "/",
-            routes![health, site_content, create_inquiry, spa_fallback],
+            routes![
+                health,
+                site_content,
+                create_inquiry,
+                admin_login,
+                admin_inquiries,
+                spa_fallback
+            ],
         )
         .mount("/", FileServer::from(static_dir()).rank(10))
         .launch()
@@ -196,13 +282,7 @@ async fn connect_store() -> Store {
     match Surreal::new::<Ws>(&url).await {
         Ok(db) => {
             if let (Some(username), Some(password)) = (username, password) {
-                if let Err(error) = db
-                    .signin(Root {
-                        username,
-                        password,
-                    })
-                    .await
-                {
+                if let Err(error) = db.signin(Root { username, password }).await {
                     eprintln!("SurrealDB sign-in failed, using memory store: {error}");
                     return Store::Memory(Arc::new(RwLock::new(Vec::new())));
                 }
@@ -246,6 +326,29 @@ fn validate_inquiry(inquiry: &NewInquiry) -> Result<(), status::Custom<String>> 
     }
 
     Ok(())
+}
+
+fn valid_admin_credentials(username: &str, password: &str) -> bool {
+    let configured_username =
+        env::var("COOPERCO_ADMIN_USER").unwrap_or_else(|_| "admin".to_owned());
+    let configured_password =
+        env::var("COOPERCO_ADMIN_PASS").unwrap_or_else(|_| "admin".to_owned());
+
+    username == configured_username && password == configured_password
+}
+
+async fn require_admin_token(
+    sessions: &AdminSessions,
+    token: &AdminToken,
+) -> Result<(), status::Custom<String>> {
+    if sessions.read().await.contains(&token.0) {
+        Ok(())
+    } else {
+        Err(status::Custom(
+            Status::Unauthorized,
+            "invalid admin credentials".to_owned(),
+        ))
+    }
 }
 
 fn server_error(error: surrealdb::Error) -> status::Custom<String> {

@@ -80,7 +80,7 @@ cd ../backend
 cargo run
 ```
 
-Open `http://127.0.0.1:8080`.
+Open `http://127.0.0.1:9001`.
 
 ## SurrealDB Configuration
 
@@ -90,7 +90,7 @@ When you have SurrealDB set up, provide these env vars before starting Rocket:
 trunk serve --config frontend/Trunk.toml
 ```
 
-Frontend is available at `http://127.0.0.1:8080` and proxies `/api/*` to the backend.
+Frontend is available at `http://127.0.0.1:9000` and proxies `/api/*` to the backend on `http://127.0.0.1:9001`.
 
 ## Extend Next
 
