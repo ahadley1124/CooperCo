@@ -187,6 +187,11 @@ h3 {
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.32);
 }
 
+.danger {
+  background: #8f2d2d;
+  color: #fff;
+}
+
 .stats {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -426,9 +431,43 @@ footer {
 }
 
 .inquiry-row h2 {
-  margin-bottom: 8px;
+  margin-bottom: 0;
   font-size: 1.35rem;
   line-height: 1.2;
+}
+
+.inquiry-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.status-badge {
+  display: inline-flex;
+  min-height: 28px;
+  align-items: center;
+  border-radius: 8px;
+  padding: 0 10px;
+  font-size: 0.76rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.status-submitted {
+  background: #efe8d6;
+  color: #73542c;
+}
+
+.status-contacted {
+  background: #dbe8f4;
+  color: #24506d;
+}
+
+.status-purchased {
+  background: #dcece3;
+  color: #285c4d;
 }
 
 .inquiry-row p {
@@ -456,6 +495,27 @@ footer {
 
 .inquiry-row a {
   color: #285c4d;
+}
+
+.inquiry-actions {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(23, 32, 27, 0.1);
+}
+
+.admin-action {
+  min-height: 38px;
+  padding: 0 12px;
+  font-size: 0.88rem;
+}
+
+.admin-action.secondary {
+  background: #f3f5f0;
+  color: #285c4d;
+  box-shadow: inset 0 0 0 1px rgba(40, 92, 77, 0.22);
 }
 
 .empty-state {

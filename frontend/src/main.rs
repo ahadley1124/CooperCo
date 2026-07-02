@@ -79,6 +79,12 @@ struct Inquiry {
     phone: String,
     pet_name: String,
     message: String,
+    status: String,
+}
+
+#[derive(Clone, Debug, Serialize)]
+struct InquiryStatusUpdate {
+    status: String,
 }
 
 #[function_component(App)]
@@ -425,6 +431,87 @@ fn admin_page() -> Html {
         })
     };
 
+    let update_status = {
+        let admin_token = admin_token.clone();
+        let inquiries = inquiries.clone();
+        let status = status.clone();
+
+        move |id: String, next_status: &'static str| {
+            let token = (*admin_token).clone();
+            let inquiries = inquiries.clone();
+            let status = status.clone();
+            let next_status = next_status.to_owned();
+
+            Callback::from(move |_| {
+                let Some(token) = token.clone() else {
+                    status.set(Some("Sign in again to update inquiries.".to_owned()));
+                    return;
+                };
+
+                let id = id.clone();
+                let next_status = next_status.clone();
+                let inquiries = inquiries.clone();
+                let status = status.clone();
+
+                status.set(Some("Updating inquiry...".to_owned()));
+                spawn_local(async move {
+                    match update_admin_inquiry_status(&token, &id, &next_status).await {
+                        Ok(updated) => {
+                            let mut next_items = (*inquiries).clone();
+                            if let Some(existing) =
+                                next_items.iter_mut().find(|item| item.id == updated.id)
+                            {
+                                *existing = updated;
+                            }
+                            inquiries.set(next_items);
+                            status.set(None);
+                        }
+                        Err(error) => status.set(Some(error)),
+                    }
+                });
+            })
+        }
+    };
+
+    let delete_item = {
+        let admin_token = admin_token.clone();
+        let inquiries = inquiries.clone();
+        let status = status.clone();
+
+        move |id: String| {
+            let token = (*admin_token).clone();
+            let inquiries = inquiries.clone();
+            let status = status.clone();
+
+            Callback::from(move |_| {
+                let Some(token) = token.clone() else {
+                    status.set(Some("Sign in again to delete inquiries.".to_owned()));
+                    return;
+                };
+
+                let id = id.clone();
+                let inquiries = inquiries.clone();
+                let status = status.clone();
+
+                status.set(Some("Deleting inquiry...".to_owned()));
+                spawn_local(async move {
+                    match delete_admin_inquiry(&token, &id).await {
+                        Ok(()) => {
+                            let next_items = inquiries
+                                .iter()
+                                .filter(|item| item.id != id)
+                                .cloned()
+                                .collect::<Vec<_>>();
+                            inquiries.set(next_items);
+                            status.set(None);
+                        }
+                        Err(error) => status.set(Some(error)),
+                    }
+                });
+            })
+        }
+    };
+
     html! {
         <main class="admin-shell">
             <section class="admin-panel">
@@ -462,7 +549,10 @@ fn admin_page() -> Html {
                             {for inquiries.iter().map(|inquiry| html! {
                                 <article class="inquiry-row">
                                     <div>
-                                        <h2>{inquiry.name.clone()}</h2>
+                                        <div class="inquiry-title">
+                                            <h2>{inquiry.name.clone()}</h2>
+                                            <span class={classes!("status-badge", status_class(&inquiry.status))}>{status_label(&inquiry.status)}</span>
+                                        </div>
                                         <p>{inquiry.message.clone()}</p>
                                     </div>
                                     <dl>
@@ -479,6 +569,12 @@ fn admin_page() -> Html {
                                             <dd>{empty_fallback(&inquiry.pet_name)}</dd>
                                         </div>
                                     </dl>
+                                    <div class="inquiry-actions">
+                                        <button class="button secondary admin-action" type="button" onclick={update_status(inquiry.id.clone(), "submitted")}>{"Submitted"}</button>
+                                        <button class="button secondary admin-action" type="button" onclick={update_status(inquiry.id.clone(), "contacted")}>{"Contacted"}</button>
+                                        <button class="button secondary admin-action" type="button" onclick={update_status(inquiry.id.clone(), "purchased")}>{"Purchased"}</button>
+                                        <button class="button danger admin-action" type="button" onclick={delete_item(inquiry.id.clone())}>{"Delete"}</button>
+                                    </div>
                                 </article>
                             })}
                         }
@@ -494,6 +590,22 @@ fn empty_fallback(value: &str) -> String {
         "Not provided".to_owned()
     } else {
         value.to_owned()
+    }
+}
+
+fn status_label(status: &str) -> &'static str {
+    match status {
+        "contacted" => "Contacted",
+        "purchased" => "Purchased",
+        _ => "Submitted",
+    }
+}
+
+fn status_class(status: &str) -> &'static str {
+    match status {
+        "contacted" => "status-contacted",
+        "purchased" => "status-purchased",
+        _ => "status-submitted",
     }
 }
 
@@ -533,5 +645,50 @@ async fn fetch_admin_inquiries(token: &str) -> Result<Vec<Inquiry>, String> {
             response.status()
         )),
         Err(error) => Err(format!("Could not load inquiries: {error}")),
+    }
+}
+
+async fn update_admin_inquiry_status(
+    token: &str,
+    id: &str,
+    next_status: &str,
+) -> Result<Inquiry, String> {
+    let payload = InquiryStatusUpdate {
+        status: next_status.to_owned(),
+    };
+    let request = Request::patch(&format!("/api/admin/inquiries/{id}/status"))
+        .header("Authorization", &format!("Bearer {token}"))
+        .header("Content-Type", "application/json")
+        .json(&payload)
+        .map_err(|error| format!("Could not prepare status update: {error}"))?;
+
+    match request.send().await {
+        Ok(response) if response.ok() => response
+            .json::<Inquiry>()
+            .await
+            .map_err(|error| format!("Could not read updated inquiry: {error}")),
+        Ok(response) if response.status() == 401 => {
+            Err("Sign in again to update inquiries.".to_owned())
+        }
+        Ok(response) => Err(format!(
+            "Status update failed with status {}.",
+            response.status()
+        )),
+        Err(error) => Err(format!("Could not update inquiry: {error}")),
+    }
+}
+
+async fn delete_admin_inquiry(token: &str, id: &str) -> Result<(), String> {
+    match Request::delete(&format!("/api/admin/inquiries/{id}"))
+        .header("Authorization", &format!("Bearer {token}"))
+        .send()
+        .await
+    {
+        Ok(response) if response.ok() => Ok(()),
+        Ok(response) if response.status() == 401 => {
+            Err("Sign in again to delete inquiries.".to_owned())
+        }
+        Ok(response) => Err(format!("Delete failed with status {}.", response.status())),
+        Err(error) => Err(format!("Could not delete inquiry: {error}")),
     }
 }

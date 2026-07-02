@@ -2,10 +2,11 @@ use std::{collections::HashSet, env, path::PathBuf, sync::Arc};
 
 use anyhow::Context;
 use rocket::{
+    delete,
     fs::{FileServer, NamedFile},
     get,
     http::Status,
-    post,
+    patch, post,
     request::{FromRequest, Outcome, Request},
     response::status,
     routes,
@@ -106,6 +107,8 @@ struct Inquiry {
     phone: String,
     pet_name: String,
     message: String,
+    #[serde(default = "default_inquiry_status")]
+    status: String,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -115,6 +118,17 @@ struct NewInquiry {
     phone: String,
     pet_name: String,
     message: String,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+struct InquiryStatusUpdate {
+    status: String,
+}
+
+#[derive(Debug, Clone, SurrealValue)]
+#[surreal(crate = "surrealdb::types")]
+struct InquiryStatusPatch {
+    status: String,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -167,6 +181,7 @@ async fn create_inquiry(
         phone: new.phone.trim().to_owned(),
         pet_name: new.pet_name.trim().to_owned(),
         message: new.message.trim().to_owned(),
+        status: default_inquiry_status(),
     };
 
     match store.inner() {
@@ -216,6 +231,94 @@ async fn admin_inquiries(
     list_admin_inquiries(store, sessions, token).await
 }
 
+#[patch(
+    "/api/admin/inquiries/<id>/status",
+    format = "json",
+    data = "<payload>"
+)]
+async fn update_inquiry_status(
+    store: &State<Store>,
+    sessions: &State<AdminSessions>,
+    token: AdminToken,
+    id: &str,
+    payload: Json<InquiryStatusUpdate>,
+) -> Result<Json<Inquiry>, status::Custom<String>> {
+    require_admin_token(sessions, &token).await?;
+    let id = parse_inquiry_id(id)?;
+    let next_status = normalize_inquiry_status(&payload.status)?;
+
+    match store.inner() {
+        Store::Surreal(db) => {
+            let updated: Option<Inquiry> = db
+                .update(("inquiry", id.to_string()))
+                .merge(InquiryStatusPatch {
+                    status: next_status,
+                })
+                .await
+                .map_err(server_error)?;
+
+            updated
+                .map(Json)
+                .ok_or_else(|| status::Custom(Status::NotFound, "inquiry was not found".to_owned()))
+        }
+        Store::Memory(items) => {
+            let mut items = items.write().await;
+            let Some(inquiry) = items.iter_mut().find(|item| item.id == id) else {
+                return Err(status::Custom(
+                    Status::NotFound,
+                    "inquiry was not found".to_owned(),
+                ));
+            };
+
+            inquiry.status = next_status;
+            Ok(Json(inquiry.clone()))
+        }
+    }
+}
+
+#[delete("/api/admin/inquiries/<id>")]
+async fn delete_inquiry(
+    store: &State<Store>,
+    sessions: &State<AdminSessions>,
+    token: AdminToken,
+    id: &str,
+) -> Result<Status, status::Custom<String>> {
+    require_admin_token(sessions, &token).await?;
+    let id = parse_inquiry_id(id)?;
+
+    match store.inner() {
+        Store::Surreal(db) => {
+            let deleted: Option<Inquiry> = db
+                .delete(("inquiry", id.to_string()))
+                .await
+                .map_err(server_error)?;
+
+            if deleted.is_some() {
+                Ok(Status::NoContent)
+            } else {
+                Err(status::Custom(
+                    Status::NotFound,
+                    "inquiry was not found".to_owned(),
+                ))
+            }
+        }
+        Store::Memory(items) => {
+            let mut items = items.write().await;
+            let original_len = items.len();
+            items.retain(|item| item.id != id);
+
+            if items.len() == original_len {
+                Err(status::Custom(
+                    Status::NotFound,
+                    "inquiry was not found".to_owned(),
+                ))
+            } else {
+                Ok(Status::NoContent)
+            }
+        }
+    }
+}
+
 async fn list_admin_inquiries(
     store: &State<Store>,
     sessions: &State<AdminSessions>,
@@ -257,6 +360,8 @@ async fn main() -> anyhow::Result<()> {
                 create_inquiry,
                 admin_login,
                 admin_inquiries,
+                update_inquiry_status,
+                delete_inquiry,
                 spa_fallback
             ],
         )
@@ -326,6 +431,27 @@ fn validate_inquiry(inquiry: &NewInquiry) -> Result<(), status::Custom<String>> 
     }
 
     Ok(())
+}
+
+fn default_inquiry_status() -> String {
+    "submitted".to_owned()
+}
+
+fn parse_inquiry_id(id: &str) -> Result<Uuid, status::Custom<String>> {
+    Uuid::parse_str(id)
+        .map_err(|_| status::Custom(Status::BadRequest, "invalid inquiry id".to_owned()))
+}
+
+fn normalize_inquiry_status(status: &str) -> Result<String, status::Custom<String>> {
+    let normalized = status.trim().to_ascii_lowercase();
+
+    match normalized.as_str() {
+        "submitted" | "contacted" | "purchased" => Ok(normalized),
+        _ => Err(status::Custom(
+            Status::BadRequest,
+            "status must be submitted, contacted, or purchased".to_owned(),
+        )),
+    }
 }
 
 fn valid_admin_credentials(username: &str, password: &str) -> bool {
