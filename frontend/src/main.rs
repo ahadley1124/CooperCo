@@ -213,27 +213,27 @@ fn public_page() -> Html {
         <>
             <a class="skip-link" href="#contact">{"Skip to contact"}</a>
             <header class="topbar">
-                <a class="brand" href="/" aria-label="Cooper and Co home">
+                <a class="brand" href="#top" aria-label="Cooper and Co home">
                     <span class="brand-mark" aria-hidden="true">{"C&Co"}</span>
                     <span>{site.business.name.clone()}</span>
                 </a>
                 <nav aria-label="Main navigation">
-                    <a href="/services">{"Services"}</a>
-                    <a href="/group-classes">{"Group classes"}</a>
-                    <a href="/service-area/lorain-county-oh">{"Service area"}</a>
-                    <a href="/contact">{"Contact"}</a>
+                    <a href="#services">{"Services"}</a>
+                    <a href="#group-classes">{"Group classes"}</a>
+                    <a href="#service-area">{"Service area"}</a>
+                    <a href="#contact">{"Contact"}</a>
                 </nav>
             </header>
 
             <main>
             <section id="top" class="hero" aria-labelledby="home-title">
-                <img class="hero-image" src={site.business.hero_image.clone()} alt="Leashed dog in a park setting representing Cooper & Co. pet services in Lorain County, Ohio" width="1600" height="900" fetchpriority="high" />
+                <img class="hero-image" src={site.business.hero_image.clone()} alt="Cooper & Co. pet services logo from the public Facebook page" width="1600" height="900" fetchpriority="high" />
                 <div class="hero-copy">
                     <p class="eyebrow">{format!("{} in {}", site.business.category, site.business.location)}</p>
                     <h1 id="home-title">{"Cooper & Co. pet services and dog training support"}</h1>
                     <p>{site.business.intro.clone()}</p>
                     <div class="hero-actions">
-                        <a class="button primary" href="/contact">{"Request information"}</a>
+                        <a class="button primary" href="#contact">{"Request information"}</a>
                         <a class="button secondary" href={format!("tel:{}", site.business.phone.replace([' ', '(', ')', '-'], ""))}>{site.business.phone.clone()}</a>
                     </div>
                 </div>
@@ -258,7 +258,7 @@ fn public_page() -> Html {
                         <article class="card">
                             <h3>{service.title.clone()}</h3>
                             <p>{service.summary.clone()}</p>
-                            <a href={if service.title.contains("Group") { "/group-classes" } else { "/contact" }}>{if service.title.contains("Group") { "View group classes" } else { "Ask about services" }}</a>
+                            <a href={if service.title.contains("Group") { "#group-classes" } else { "#contact" }}>{if service.title.contains("Group") { "View group classes" } else { "Ask about services" }}</a>
                         </article>
                     })}
                 </div>
@@ -295,12 +295,12 @@ fn public_page() -> Html {
                     <p>{"Cooper & Co. focuses on pet families throughout Lorain County, Ohio."}</p>
                 </div>
                 <div class="service-grid">
-                    <article class="card"><h3><a href="/service-area/lorain-county-oh">{"Lorain County, OH"}</a></h3><p>{"Pet services and dog training support across Lorain County."}</p></article>
-                    <article class="card"><h3><a href="/service-area/elyria-oh">{"Elyria, OH"}</a></h3><p>{"Dog training Elyria OH and pet service inquiries for Elyria families."}</p></article>
-                    <article class="card"><h3><a href="/service-area/lorain-oh">{"Lorain, OH"}</a></h3><p>{"Dog training Lorain OH and local pet support questions."}</p></article>
-                    <article class="card"><h3><a href="/service-area/amherst-oh">{"Amherst, OH"}</a></h3><p>{"Pet services and class inquiries near Amherst, Ohio."}</p></article>
-                    <article class="card"><h3><a href="/service-area/avon-oh">{"Avon, OH"}</a></h3><p>{"Group class and pet support inquiries for Avon pet families."}</p></article>
-                    <article class="card"><h3><a href="/service-area/north-ridgeville-oh">{"North Ridgeville, OH"}</a></h3><p>{"Dog training and pet service inquiries near North Ridgeville."}</p></article>
+                    <article id="lorain-county-oh" class="card"><h3><a href="#lorain-county-oh">{"Lorain County, OH"}</a></h3><p>{"Pet services and dog training support across Lorain County."}</p></article>
+                    <article id="elyria-oh" class="card"><h3><a href="#elyria-oh">{"Elyria, OH"}</a></h3><p>{"Dog training Elyria OH and pet service inquiries for Elyria families."}</p></article>
+                    <article id="lorain-oh" class="card"><h3><a href="#lorain-oh">{"Lorain, OH"}</a></h3><p>{"Dog training Lorain OH and local pet support questions."}</p></article>
+                    <article id="amherst-oh" class="card"><h3><a href="#amherst-oh">{"Amherst, OH"}</a></h3><p>{"Pet services and class inquiries near Amherst, Ohio."}</p></article>
+                    <article id="avon-oh" class="card"><h3><a href="#avon-oh">{"Avon, OH"}</a></h3><p>{"Group class and pet support inquiries for Avon pet families."}</p></article>
+                    <article id="north-ridgeville-oh" class="card"><h3><a href="#north-ridgeville-oh">{"North Ridgeville, OH"}</a></h3><p>{"Dog training and pet service inquiries near North Ridgeville."}</p></article>
                 </div>
             </section>
 
@@ -370,8 +370,8 @@ fn public_page() -> Html {
 
             <footer>
                 <span>{format!("{} · {}", site.business.name, site.business.location)}</span>
-                <a href="/services">{"Services"}</a>
-                <a href="/contact">{"Contact"}</a>
+                <a href="#services">{"Services"}</a>
+                <a href="#contact">{"Contact"}</a>
                 <a href={site.business.facebook_url} target="_blank" rel="noreferrer">{"Facebook"}</a>
             </footer>
         </>
@@ -389,7 +389,7 @@ fn seed_content() -> SiteContent {
             facebook_url: "https://www.facebook.com/CooperAndCoPet".to_owned(),
             yelp_url: "https://m.yelp.com/biz/cooper-and-company-elyria".to_owned(),
             intro: "Cooper & Co. helps local pet families ask about dog training, group classes, puppy classes, and pet support across Lorain County, Elyria, Lorain, Amherst, Avon, and North Ridgeville, Ohio.".to_owned(),
-            hero_image: "/assets/cooperco-pet-services-hero.webp".to_owned(),
+            hero_image: "/assets/facebook-cooperco-hero.webp".to_owned(),
         },
         stats: vec![
             Stat {
@@ -426,16 +426,16 @@ fn seed_content() -> SiteContent {
         }],
         gallery: vec![
             GalleryImage {
-                src: "/assets/group-dog-classes-lorain-county.webp".to_owned(),
-                alt: "Dogs practicing calm focus during a Cooper & Co. group dog class in Lorain County, Ohio".to_owned(),
+                src: "/assets/facebook-cooperco-gallery-1.webp".to_owned(),
+                alt: "Cooper & Co. pet services logo from the public Facebook page".to_owned(),
             },
             GalleryImage {
-                src: "/assets/puppy-training-lorain-county.webp".to_owned(),
-                alt: "Puppy learning basic attention skills during local pet service support in Lorain County, Ohio".to_owned(),
+                src: "/assets/facebook-cooperco-gallery-2.webp".to_owned(),
+                alt: "Cooper & Co. pet services logo from the public Facebook page".to_owned(),
             },
             GalleryImage {
-                src: "/assets/cooperco-pet-services-hero.webp".to_owned(),
-                alt: "Leashed dog in a park setting representing pet services and dog training in Lorain County".to_owned(),
+                src: "/assets/facebook-cooperco-gallery-3.webp".to_owned(),
+                alt: "Cooper & Co. pet services logo from the public Facebook page".to_owned(),
             },
         ],
     }
