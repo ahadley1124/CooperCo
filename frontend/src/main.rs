@@ -51,24 +51,10 @@ struct GalleryImage {
     alt: String,
 }
 
-#[derive(Clone, Debug, Default, Serialize)]
-struct InquiryForm {
-    name: String,
+#[derive(Clone, Debug, PartialEq, Deserialize)]
+struct AdminProfile {
     email: String,
-    phone: String,
-    pet_name: String,
-    message: String,
-}
-
-#[derive(Clone, Debug, Default, Serialize)]
-struct AdminLogin {
-    username: String,
-    password: String,
-}
-
-#[derive(Clone, Debug, Deserialize)]
-struct AdminLoginResponse {
-    token: String,
+    name: Option<String>,
 }
 
 #[derive(Clone, Debug, PartialEq, Deserialize)]
@@ -85,6 +71,15 @@ struct Inquiry {
 #[derive(Clone, Debug, Serialize)]
 struct InquiryStatusUpdate {
     status: String,
+}
+
+#[derive(Clone, Debug, Default, Serialize)]
+struct InquiryForm {
+    name: String,
+    email: String,
+    phone: String,
+    pet_name: String,
+    message: String,
 }
 
 #[function_component(App)]
@@ -114,7 +109,7 @@ fn current_route() -> AppRoute {
 
 #[function_component(PublicPage)]
 fn public_page() -> Html {
-    let content = use_state(|| None::<SiteContent>);
+    let content = use_state(|| Some(seed_content()));
     let load_error = use_state(|| None::<String>);
     let form = use_state(InquiryForm::default);
     let submit_state = use_state(|| "idle".to_owned());
@@ -216,26 +211,29 @@ fn public_page() -> Html {
 
     html! {
         <>
+            <a class="skip-link" href="#contact">{"Skip to contact"}</a>
             <header class="topbar">
-                <a class="brand" href="#top" aria-label="Cooper and Co home">
-                    <span class="brand-mark">{"C&Co"}</span>
+                <a class="brand" href="/" aria-label="Cooper and Co home">
+                    <span class="brand-mark" aria-hidden="true">{"C&Co"}</span>
                     <span>{site.business.name.clone()}</span>
                 </a>
                 <nav aria-label="Main navigation">
-                    <a href="#services">{"Services"}</a>
-                    <a href="#updates">{"Updates"}</a>
-                    <a href="#contact">{"Contact"}</a>
+                    <a href="/services">{"Services"}</a>
+                    <a href="/group-classes">{"Group classes"}</a>
+                    <a href="/service-area/lorain-county-oh">{"Service area"}</a>
+                    <a href="/contact">{"Contact"}</a>
                 </nav>
             </header>
 
-            <section id="top" class="hero">
-                <img class="hero-image" src={site.business.hero_image.clone()} alt="Cooper & Co. pets and services" />
+            <main>
+            <section id="top" class="hero" aria-labelledby="home-title">
+                <img class="hero-image" src={site.business.hero_image.clone()} alt="Leashed dog in a park setting representing Cooper & Co. pet services in Lorain County, Ohio" width="1600" height="900" fetchpriority="high" />
                 <div class="hero-copy">
                     <p class="eyebrow">{format!("{} in {}", site.business.category, site.business.location)}</p>
-                    <h1>{site.business.name.clone()}</h1>
+                    <h1 id="home-title">{"Cooper & Co. pet services and dog training support"}</h1>
                     <p>{site.business.intro.clone()}</p>
                     <div class="hero-actions">
-                        <a class="button primary" href="#contact">{"Request information"}</a>
+                        <a class="button primary" href="/contact">{"Request information"}</a>
                         <a class="button secondary" href={format!("tel:{}", site.business.phone.replace([' ', '(', ')', '-'], ""))}>{site.business.phone.clone()}</a>
                     </div>
                 </div>
@@ -250,25 +248,27 @@ fn public_page() -> Html {
                 })}
             </section>
 
-            <section id="services" class="section">
+            <section id="services" class="section" aria-labelledby="services-title">
                 <div class="section-heading">
-                    <p class="eyebrow">{"What is available"}</p>
-                    <h2>{"Pet services with direct local contact"}</h2>
+                    <p class="eyebrow">{"Services"}</p>
+                    <h2 id="services-title">{"Pet services for Lorain County families"}</h2>
                 </div>
                 <div class="service-grid">
                     {for site.services.iter().map(|service| html! {
                         <article class="card">
                             <h3>{service.title.clone()}</h3>
                             <p>{service.summary.clone()}</p>
+                            <a href={if service.title.contains("Group") { "/group-classes" } else { "/contact" }}>{if service.title.contains("Group") { "View group classes" } else { "Ask about services" }}</a>
                         </article>
                     })}
                 </div>
             </section>
 
-            <section id="updates" class="section split">
+            <section id="group-classes" class="section split" aria-labelledby="classes-title">
                 <div>
-                    <p class="eyebrow">{"Latest public update"}</p>
-                    <h2>{"Class news from Cooper & Co."}</h2>
+                    <p class="eyebrow">{"Group classes"}</p>
+                    <h2 id="classes-title">{"Dog training and group classes in Lorain County"}</h2>
+                    <p>{"Cooper & Co. shares class updates publicly and handles booking questions directly by phone, email, Facebook, and the contact form."}</p>
                 </div>
                 <div class="updates">
                     {for site.updates.iter().map(|update| html! {
@@ -284,41 +284,81 @@ fn public_page() -> Html {
 
             <section class="gallery" aria-label="Cooper and Co photo preview">
                 {for site.gallery.iter().map(|image| html! {
-                    <img src={image.src.clone()} alt={image.alt.clone()} />
+                    <img src={image.src.clone()} alt={image.alt.clone()} width="1200" height="1200" loading="lazy" />
                 })}
             </section>
 
-            <section id="contact" class="section contact">
+            <section id="service-area" class="section" aria-labelledby="area-title">
+                <div class="section-heading">
+                    <p class="eyebrow">{"Service area"}</p>
+                    <h2 id="area-title">{"Dog training and pet services near you"}</h2>
+                    <p>{"Cooper & Co. focuses on pet families throughout Lorain County, Ohio."}</p>
+                </div>
+                <div class="service-grid">
+                    <article class="card"><h3><a href="/service-area/lorain-county-oh">{"Lorain County, OH"}</a></h3><p>{"Pet services and dog training support across Lorain County."}</p></article>
+                    <article class="card"><h3><a href="/service-area/elyria-oh">{"Elyria, OH"}</a></h3><p>{"Dog training Elyria OH and pet service inquiries for Elyria families."}</p></article>
+                    <article class="card"><h3><a href="/service-area/lorain-oh">{"Lorain, OH"}</a></h3><p>{"Dog training Lorain OH and local pet support questions."}</p></article>
+                    <article class="card"><h3><a href="/service-area/amherst-oh">{"Amherst, OH"}</a></h3><p>{"Pet services and class inquiries near Amherst, Ohio."}</p></article>
+                    <article class="card"><h3><a href="/service-area/avon-oh">{"Avon, OH"}</a></h3><p>{"Group class and pet support inquiries for Avon pet families."}</p></article>
+                    <article class="card"><h3><a href="/service-area/north-ridgeville-oh">{"North Ridgeville, OH"}</a></h3><p>{"Dog training and pet service inquiries near North Ridgeville."}</p></article>
+                </div>
+            </section>
+
+            <section id="faq" class="section faq" aria-labelledby="faq-title">
+                <div class="section-heading">
+                    <p class="eyebrow">{"Questions"}</p>
+                    <h2 id="faq-title">{"Dog training, pricing, availability, and service area FAQ"}</h2>
+                </div>
+                <details open=true>
+                    <summary>{"Does Cooper & Co. offer dog training in Lorain County?"}</summary>
+                    <p>{"Yes. Cooper & Co. supports dog training and group class inquiries for Lorain County pet families."}</p>
+                </details>
+                <details>
+                    <summary>{"Are group dog classes or puppy classes available now?"}</summary>
+                    <p>{"Availability can change by season. Use the contact form, phone number, or Facebook page for current class openings."}</p>
+                </details>
+                <details>
+                    <summary>{"How much do pet services or classes cost?"}</summary>
+                    <p>{"Pricing depends on the service, class, and current availability. Contact Cooper & Co. with your pet details for current pricing."}</p>
+                </details>
+                <details>
+                    <summary>{"What cities are in the Cooper & Co. service area?"}</summary>
+                    <p>{"The service area centers on Lorain County, including Elyria, Lorain, Amherst, Avon, and North Ridgeville, Ohio."}</p>
+                </details>
+            </section>
+
+            <section id="contact" class="section contact" aria-labelledby="contact-title">
                 <div class="contact-copy">
                     <p class="eyebrow">{"Contact"}</p>
-                    <h2>{"Ask about classes or pet support"}</h2>
+                    <h2 id="contact-title">{"Ask about classes or pet support"}</h2>
                     <a href={format!("mailto:{}", site.business.email)}>{site.business.email.clone()}</a>
                     <a href={format!("tel:{}", site.business.phone.replace([' ', '(', ')', '-'], ""))}>{site.business.phone.clone()}</a>
+                    <a href={site.business.facebook_url.clone()} target="_blank" rel="noreferrer">{"Facebook"}</a>
                     <a href={site.business.yelp_url.clone()} target="_blank" rel="noreferrer">{"Yelp listing"}</a>
                 </div>
-                <form onsubmit={onsubmit}>
-                    <label>
+                <form onsubmit={onsubmit} aria-label="Pet service inquiry form">
+                    <label for="name">
                         {"Name"}
-                        <input value={form.name.clone()} oninput={update_field("name")} required=true />
+                        <input id="name" name="name" autocomplete="name" value={form.name.clone()} oninput={update_field("name")} required=true aria-required="true" />
                     </label>
-                    <label>
+                    <label for="email">
                         {"Email"}
-                        <input r#type="email" value={form.email.clone()} oninput={update_field("email")} required=true />
+                        <input id="email" name="email" r#type="email" autocomplete="email" value={form.email.clone()} oninput={update_field("email")} required=true aria-required="true" />
                     </label>
-                    <label>
+                    <label for="phone">
                         {"Phone"}
-                        <input value={form.phone.clone()} oninput={update_field("phone")} />
+                        <input id="phone" name="phone" r#type="tel" autocomplete="tel" value={form.phone.clone()} oninput={update_field("phone")} />
                     </label>
-                    <label>
+                    <label for="pet-name">
                         {"Pet name"}
-                        <input value={form.pet_name.clone()} oninput={update_field("pet_name")} />
+                        <input id="pet-name" name="pet_name" value={form.pet_name.clone()} oninput={update_field("pet_name")} />
                     </label>
-                    <label class="wide">
+                    <label class="wide" for="message">
                         {"Message"}
-                        <textarea value={form.message.clone()} oninput={update_field("message")} required=true />
+                        <textarea id="message" name="message" value={form.message.clone()} oninput={update_field("message")} required=true aria-required="true" />
                     </label>
-                    <button class="button primary" type="submit" disabled={*submit_state == "sending"}>{"Send inquiry"}</button>
-                    <p class="form-status">{match submit_state.as_str() {
+                    <button class="button primary" type="submit" disabled={*submit_state == "sending"} aria-busy={(*submit_state == "sending").to_string()}>{"Send inquiry"}</button>
+                    <p class="form-status" role="status" aria-live="polite">{match submit_state.as_str() {
                         "idle" => "",
                         "sending" => "Sending...",
                         "sent" => "Inquiry sent.",
@@ -326,12 +366,78 @@ fn public_page() -> Html {
                     }}</p>
                 </form>
             </section>
+            </main>
 
             <footer>
                 <span>{format!("{} · {}", site.business.name, site.business.location)}</span>
+                <a href="/services">{"Services"}</a>
+                <a href="/contact">{"Contact"}</a>
                 <a href={site.business.facebook_url} target="_blank" rel="noreferrer">{"Facebook"}</a>
             </footer>
         </>
+    }
+}
+
+fn seed_content() -> SiteContent {
+    SiteContent {
+        business: Business {
+            name: "Cooper & Co.".to_owned(),
+            category: "Pet service".to_owned(),
+            location: "Lorain County, OH".to_owned(),
+            phone: "(440) 276-1716".to_owned(),
+            email: "cooper.copetservices@gmail.com".to_owned(),
+            facebook_url: "https://www.facebook.com/CooperAndCoPet".to_owned(),
+            yelp_url: "https://m.yelp.com/biz/cooper-and-company-elyria".to_owned(),
+            intro: "Cooper & Co. helps local pet families ask about dog training, group classes, puppy classes, and pet support across Lorain County, Elyria, Lorain, Amherst, Avon, and North Ridgeville, Ohio.".to_owned(),
+            hero_image: "/assets/cooperco-pet-services-hero.webp".to_owned(),
+        },
+        stats: vec![
+            Stat {
+                label: "Facebook likes".to_owned(),
+                value: "177".to_owned(),
+            },
+            Stat {
+                label: "Followers".to_owned(),
+                value: "177".to_owned(),
+            },
+            Stat {
+                label: "Reviews noted".to_owned(),
+                value: "3".to_owned(),
+            },
+        ],
+        services: vec![
+            Service {
+                title: "Group dog classes".to_owned(),
+                summary: "Seasonal group classes help dogs practice calm focus, leash manners, and social learning around other pets.".to_owned(),
+            },
+            Service {
+                title: "Puppy classes and training questions".to_owned(),
+                summary: "Ask about age-appropriate puppy support, early manners, confidence building, and current class availability.".to_owned(),
+            },
+            Service {
+                title: "Local pet service inquiries".to_owned(),
+                summary: "Share your pet details, goals, schedule needs, and location so Cooper & Co. can respond directly.".to_owned(),
+            },
+        ],
+        updates: vec![Update {
+            title: "Ask about upcoming group dog classes".to_owned(),
+            summary: "Class times and openings can change. Contact Cooper & Co. for the latest dog training and group class schedule.".to_owned(),
+            source_label: "Current availability".to_owned(),
+        }],
+        gallery: vec![
+            GalleryImage {
+                src: "/assets/group-dog-classes-lorain-county.webp".to_owned(),
+                alt: "Dogs practicing calm focus during a Cooper & Co. group dog class in Lorain County, Ohio".to_owned(),
+            },
+            GalleryImage {
+                src: "/assets/puppy-training-lorain-county.webp".to_owned(),
+                alt: "Puppy learning basic attention skills during local pet service support in Lorain County, Ohio".to_owned(),
+            },
+            GalleryImage {
+                src: "/assets/cooperco-pet-services-hero.webp".to_owned(),
+                alt: "Leashed dog in a park setting representing pet services and dog training in Lorain County".to_owned(),
+            },
+        ],
     }
 }
 
@@ -341,113 +447,76 @@ fn main() {
 
 #[function_component(AdminPage)]
 fn admin_page() -> Html {
-    let login = use_state(AdminLogin::default);
+    let profile = use_state(|| None::<AdminProfile>);
     let inquiries = use_state(Vec::<Inquiry>::new);
-    let status = use_state(|| None::<String>);
-    let admin_token = use_state(|| None::<String>);
+    let status = use_state(|| Some("Checking Microsoft session...".to_owned()));
+    let signed_in = use_state(|| false);
 
-    let update_field = {
-        let login = login.clone();
-        move |field: &'static str| {
-            let login = login.clone();
-            Callback::from(move |event: InputEvent| {
-                let value = event
-                    .target_dyn_into::<HtmlInputElement>()
-                    .map(|input| input.value())
-                    .unwrap_or_default();
-
-                let mut next = (*login).clone();
-                match field {
-                    "username" => next.username = value,
-                    "password" => next.password = value,
-                    _ => {}
-                }
-                login.set(next);
-            })
-        }
-    };
-
-    let onsubmit = {
-        let login = login.clone();
+    {
+        let profile = profile.clone();
         let inquiries = inquiries.clone();
         let status = status.clone();
-        let admin_token = admin_token.clone();
+        let signed_in = signed_in.clone();
+        use_effect_with((), move |_| {
+            spawn_local(async move {
+                match fetch_admin_profile().await {
+                    Ok(admin) => {
+                        profile.set(Some(admin));
+                        signed_in.set(true);
+                    }
+                    Err(error) if error.starts_with("Sign in") => {
+                        status.set(Some(error));
+                        return;
+                    }
+                    Err(error) => {
+                        status.set(Some(error));
+                        return;
+                    }
+                }
 
-        Callback::from(move |event: SubmitEvent| {
-            event.prevent_default();
-            let credentials = (*login).clone();
+                match fetch_admin_inquiries().await {
+                    Ok(items) => {
+                        inquiries.set(items);
+                        status.set(None);
+                    }
+                    Err(error) => status.set(Some(error)),
+                }
+            });
+            || ()
+        });
+    };
+
+    let onrefresh = {
+        let inquiries = inquiries.clone();
+        let status = status.clone();
+
+        Callback::from(move |_| {
             let inquiries = inquiries.clone();
             let status = status.clone();
-            let admin_token = admin_token.clone();
 
-            status.set(Some("Signing in...".to_owned()));
+            status.set(Some("Refreshing inquiries...".to_owned()));
             spawn_local(async move {
-                match admin_login(credentials).await {
-                    Ok(token) => match fetch_admin_inquiries(&token).await {
-                        Ok(items) => {
-                            inquiries.set(items);
-                            admin_token.set(Some(token));
-                            status.set(None);
-                        }
-                        Err(error) => status.set(Some(error)),
-                    },
+                match fetch_admin_inquiries().await {
+                    Ok(items) => {
+                        inquiries.set(items);
+                        status.set(None);
+                    }
                     Err(error) => status.set(Some(error)),
                 }
             });
         })
     };
 
-    let onrefresh = {
-        let admin_token = admin_token.clone();
-        let inquiries = inquiries.clone();
-        let status = status.clone();
-
-        Callback::from(move |_| {
-            let token = (*admin_token).clone();
-            let inquiries = inquiries.clone();
-            let status = status.clone();
-            let admin_token = admin_token.clone();
-
-            let Some(token) = token else {
-                status.set(Some("Sign in again to refresh inquiries.".to_owned()));
-                return;
-            };
-
-            status.set(Some("Refreshing inquiries...".to_owned()));
-            spawn_local(async move {
-                match fetch_admin_inquiries(&token).await {
-                    Ok(items) => {
-                        inquiries.set(items);
-                        status.set(None);
-                    }
-                    Err(error) => {
-                        if error.starts_with("Sign in again") {
-                            admin_token.set(None);
-                        }
-                        status.set(Some(error));
-                    }
-                }
-            });
-        })
-    };
-
     let update_status = {
-        let admin_token = admin_token.clone();
         let inquiries = inquiries.clone();
         let status = status.clone();
 
         move |id: String, next_status: &'static str| {
-            let token = (*admin_token).clone();
             let inquiries = inquiries.clone();
             let status = status.clone();
             let next_status = next_status.to_owned();
 
             Callback::from(move |_| {
-                let Some(token) = token.clone() else {
-                    status.set(Some("Sign in again to update inquiries.".to_owned()));
-                    return;
-                };
-
                 let id = id.clone();
                 let next_status = next_status.clone();
                 let inquiries = inquiries.clone();
@@ -455,7 +524,7 @@ fn admin_page() -> Html {
 
                 status.set(Some("Updating inquiry...".to_owned()));
                 spawn_local(async move {
-                    match update_admin_inquiry_status(&token, &id, &next_status).await {
+                    match update_admin_inquiry_status(&id, &next_status).await {
                         Ok(updated) => {
                             let mut next_items = (*inquiries).clone();
                             if let Some(existing) =
@@ -474,28 +543,21 @@ fn admin_page() -> Html {
     };
 
     let delete_item = {
-        let admin_token = admin_token.clone();
         let inquiries = inquiries.clone();
         let status = status.clone();
 
         move |id: String| {
-            let token = (*admin_token).clone();
             let inquiries = inquiries.clone();
             let status = status.clone();
 
             Callback::from(move |_| {
-                let Some(token) = token.clone() else {
-                    status.set(Some("Sign in again to delete inquiries.".to_owned()));
-                    return;
-                };
-
                 let id = id.clone();
                 let inquiries = inquiries.clone();
                 let status = status.clone();
 
                 status.set(Some("Deleting inquiry...".to_owned()));
                 spawn_local(async move {
-                    match delete_admin_inquiry(&token, &id).await {
+                    match delete_admin_inquiry(&id).await {
                         Ok(()) => {
                             let next_items = inquiries
                                 .iter()
@@ -520,22 +582,21 @@ fn admin_page() -> Html {
                     <div>
                         <p class="eyebrow">{"Admin"}</p>
                         <h1>{"Contact requests"}</h1>
+                        <p>{profile.as_ref().map(|admin| admin.email.clone()).unwrap_or_default()}</p>
                     </div>
+                    if *signed_in {
+                        <form action="/auth/logout" method="post">
+                            <button class="button secondary" type="submit">{"Sign out"}</button>
+                        </form>
+                    }
                 </div>
 
-                if admin_token.is_none() {
-                    <form class="admin-login" onsubmit={onsubmit}>
-                        <label>
-                            {"Username"}
-                            <input value={login.username.clone()} oninput={update_field("username")} autocomplete="username" required=true />
-                        </label>
-                        <label>
-                            {"Password"}
-                            <input r#type="password" value={login.password.clone()} oninput={update_field("password")} autocomplete="current-password" required=true />
-                        </label>
-                        <button class="button primary" type="submit">{"Sign in"}</button>
+                if !*signed_in {
+                    <div class="admin-login">
+                        <p>{"Sign in with a permitted Microsoft account to manage Cooper & Co. inquiries."}</p>
+                        <a class="button primary" href="/auth/microsoft/login">{"Sign in with Microsoft"}</a>
                         <p class="form-status">{status.as_ref().cloned().unwrap_or_default()}</p>
-                    </form>
+                    </div>
                 } else {
                     <div class="admin-list">
                         <div class="admin-list-header">
@@ -609,30 +670,25 @@ fn status_class(status: &str) -> &'static str {
     }
 }
 
-async fn admin_login(credentials: AdminLogin) -> Result<String, String> {
-    let request = Request::post("/api/admin/login")
-        .header("Content-Type", "application/json")
-        .json(&credentials)
-        .map_err(|error| format!("Could not prepare login: {error}"))?;
-
-    match request.send().await {
+async fn fetch_admin_profile() -> Result<AdminProfile, String> {
+    match Request::get("/api/admin/me").send().await {
         Ok(response) if response.ok() => response
-            .json::<AdminLoginResponse>()
+            .json::<AdminProfile>()
             .await
-            .map(|login| login.token)
-            .map_err(|error| format!("Could not read login response: {error}")),
-        Ok(response) if response.status() == 401 => Err("Invalid username or password.".to_owned()),
-        Ok(response) => Err(format!("Login failed with status {}.", response.status())),
-        Err(error) => Err(format!("Could not sign in: {error}")),
+            .map_err(|error| format!("Could not read admin profile: {error}")),
+        Ok(response) if response.status() == 401 => {
+            Err("Sign in with Microsoft to view admin inquiries.".to_owned())
+        }
+        Ok(response) => Err(format!(
+            "Admin check failed with status {}.",
+            response.status()
+        )),
+        Err(error) => Err(format!("Could not check admin session: {error}")),
     }
 }
 
-async fn fetch_admin_inquiries(token: &str) -> Result<Vec<Inquiry>, String> {
-    match Request::get("/api/admin/inquiries")
-        .header("Authorization", &format!("Bearer {token}"))
-        .send()
-        .await
-    {
+async fn fetch_admin_inquiries() -> Result<Vec<Inquiry>, String> {
+    match Request::get("/api/admin/inquiries").send().await {
         Ok(response) if response.ok() => response
             .json::<Vec<Inquiry>>()
             .await
@@ -648,16 +704,11 @@ async fn fetch_admin_inquiries(token: &str) -> Result<Vec<Inquiry>, String> {
     }
 }
 
-async fn update_admin_inquiry_status(
-    token: &str,
-    id: &str,
-    next_status: &str,
-) -> Result<Inquiry, String> {
+async fn update_admin_inquiry_status(id: &str, next_status: &str) -> Result<Inquiry, String> {
     let payload = InquiryStatusUpdate {
         status: next_status.to_owned(),
     };
     let request = Request::patch(&format!("/api/admin/inquiries/{id}/status"))
-        .header("Authorization", &format!("Bearer {token}"))
         .header("Content-Type", "application/json")
         .json(&payload)
         .map_err(|error| format!("Could not prepare status update: {error}"))?;
@@ -678,9 +729,8 @@ async fn update_admin_inquiry_status(
     }
 }
 
-async fn delete_admin_inquiry(token: &str, id: &str) -> Result<(), String> {
+async fn delete_admin_inquiry(id: &str) -> Result<(), String> {
     match Request::delete(&format!("/api/admin/inquiries/{id}"))
-        .header("Authorization", &format!("Bearer {token}"))
         .send()
         .await
     {

@@ -1,17 +1,19 @@
-use std::{collections::HashSet, env, path::PathBuf, sync::Arc};
+use std::{env, path::PathBuf, sync::Arc};
 
 use anyhow::Context;
 use rocket::{
     delete,
     fs::{FileServer, NamedFile},
     get,
-    http::Status,
+    http::{Cookie, CookieJar, HeaderMap, SameSite, Status},
     patch, post,
-    request::{FromRequest, Outcome, Request},
+    request::{FromRequest, Outcome},
+    response::content::{RawText, RawXml},
     response::status,
+    response::Redirect,
     routes,
     serde::json::Json,
-    Config, State,
+    Config, Request, State,
 };
 use serde::{Deserialize, Serialize};
 use surrealdb::{
@@ -24,26 +26,8 @@ use tokio::sync::RwLock;
 use uuid::Uuid;
 
 type Db = Surreal<Client>;
-type AdminSessions = Arc<RwLock<HashSet<String>>>;
-
-struct AdminToken(String);
-
-#[rocket::async_trait]
-impl<'r> FromRequest<'r> for AdminToken {
-    type Error = ();
-
-    async fn from_request(request: &'r Request<'_>) -> Outcome<Self, Self::Error> {
-        match request
-            .headers()
-            .get_one("authorization")
-            .and_then(|value| value.strip_prefix("Bearer "))
-            .filter(|token| !token.is_empty())
-        {
-            Some(token) => Outcome::Success(AdminToken(token.to_owned())),
-            None => Outcome::Error((Status::Unauthorized, ())),
-        }
-    }
-}
+const ADMIN_SESSION_COOKIE: &str = "cooperco_admin_session";
+const ADMIN_STATE_COOKIE: &str = "cooperco_ms_state";
 
 #[derive(Clone)]
 enum Store {
@@ -131,15 +115,41 @@ struct InquiryStatusPatch {
     status: String,
 }
 
-#[derive(Debug, Clone, Deserialize)]
-struct AdminLoginRequest {
-    username: String,
-    password: String,
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct AdminSession {
+    email: String,
+    name: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
-struct AdminLoginResponse {
-    token: String,
+struct AdminProfile {
+    email: String,
+    name: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+struct MicrosoftTokenResponse {
+    access_token: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct MicrosoftUser {
+    #[serde(rename = "displayName")]
+    display_name: Option<String>,
+    mail: Option<String>,
+    #[serde(rename = "userPrincipalName")]
+    user_principal_name: Option<String>,
+}
+
+#[derive(Debug)]
+struct AdminAuth {
+    email: String,
+    name: Option<String>,
+}
+
+#[derive(Debug)]
+enum AuthError {
+    Missing,
 }
 
 #[derive(Debug, Serialize)]
@@ -164,6 +174,178 @@ fn health(store: &State<Store>) -> Json<Health> {
 #[get("/api/site")]
 fn site_content() -> Json<SiteContent> {
     Json(seed_content())
+}
+
+#[get("/robots.txt")]
+fn robots_txt() -> RawText<String> {
+    let site_url = public_site_url();
+    let body = if noindex_enabled() {
+        "User-agent: *\nDisallow: /\n".to_owned()
+    } else {
+        format!("User-agent: *\nAllow: /\nSitemap: {site_url}/sitemap.xml\n")
+    };
+
+    RawText(body)
+}
+
+#[get("/sitemap.xml")]
+fn sitemap_xml() -> RawXml<String> {
+    let site_url = public_site_url();
+    let paths = [
+        "/",
+        "/services",
+        "/group-classes",
+        "/contact",
+        "/service-area/lorain-county-oh",
+        "/service-area/elyria-oh",
+        "/service-area/lorain-oh",
+        "/service-area/amherst-oh",
+        "/service-area/avon-oh",
+        "/service-area/north-ridgeville-oh",
+    ];
+
+    let urls = paths
+        .iter()
+        .map(|path| {
+            format!(
+                "<url><loc>{site_url}{path}</loc><changefreq>monthly</changefreq><priority>{priority}</priority></url>",
+                priority = if *path == "/" { "1.0" } else { "0.8" }
+            )
+        })
+        .collect::<String>();
+
+    RawXml(format!(
+        r#"<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">{urls}</urlset>"#
+    ))
+}
+
+#[get("/auth/microsoft/login")]
+fn microsoft_login(cookies: &CookieJar<'_>) -> Result<Redirect, status::Custom<String>> {
+    let client_id = env::var("MICROSOFT_CLIENT_ID").map_err(|_| {
+        status::Custom(
+            Status::InternalServerError,
+            "MICROSOFT_CLIENT_ID is required for admin login".to_owned(),
+        )
+    })?;
+
+    let tenant = microsoft_tenant();
+    let redirect_uri = microsoft_redirect_uri();
+    let state = Uuid::new_v4().to_string();
+    cookies.add_private(
+        Cookie::build((ADMIN_STATE_COOKIE, state.clone()))
+            .http_only(true)
+            .same_site(SameSite::Lax)
+            .path("/")
+            .build(),
+    );
+
+    let url = format!(
+        "https://login.microsoftonline.com/{tenant}/oauth2/v2.0/authorize?client_id={client_id}&response_type=code&redirect_uri={redirect_uri}&response_mode=query&scope=openid%20profile%20email%20User.Read&state={state}",
+        redirect_uri = percent_encode(&redirect_uri),
+        state = percent_encode(&state),
+    );
+
+    Ok(Redirect::to(url))
+}
+
+#[get("/auth/microsoft/callback?<code>&<state>&<error>&<error_description>")]
+async fn microsoft_callback(
+    cookies: &CookieJar<'_>,
+    code: Option<&str>,
+    state: Option<&str>,
+    error: Option<&str>,
+    error_description: Option<&str>,
+) -> Result<Redirect, status::Custom<String>> {
+    if let Some(error) = error {
+        return Err(status::Custom(
+            Status::Unauthorized,
+            error_description.unwrap_or(error).to_owned(),
+        ));
+    }
+
+    let expected_state = cookies
+        .get_private(ADMIN_STATE_COOKIE)
+        .map(|cookie| cookie.value().to_owned())
+        .ok_or_else(|| status::Custom(Status::Unauthorized, "missing login state".to_owned()))?;
+
+    if state != Some(expected_state.as_str()) {
+        return Err(status::Custom(
+            Status::Unauthorized,
+            "invalid login state".to_owned(),
+        ));
+    }
+
+    cookies.remove_private(Cookie::build(ADMIN_STATE_COOKIE).path("/").build());
+
+    let code =
+        code.ok_or_else(|| status::Custom(Status::BadRequest, "missing auth code".to_owned()))?;
+    let token = exchange_microsoft_code(code).await?;
+    let user = fetch_microsoft_user(&token.access_token).await?;
+    let email = user
+        .mail
+        .or(user.user_principal_name)
+        .ok_or_else(|| {
+            status::Custom(
+                Status::Forbidden,
+                "Microsoft account has no email".to_owned(),
+            )
+        })?
+        .to_ascii_lowercase();
+
+    if !admin_email_allowed(&email) {
+        return Err(status::Custom(
+            Status::Forbidden,
+            "Microsoft account is not allowed to access admin".to_owned(),
+        ));
+    }
+
+    let session = AdminSession {
+        email,
+        name: user.display_name,
+    };
+    let session_json = serde_json::to_string(&session).map_err(|error| {
+        status::Custom(
+            Status::InternalServerError,
+            format!("session error: {error}"),
+        )
+    })?;
+
+    cookies.add_private(
+        Cookie::build((ADMIN_SESSION_COOKIE, session_json))
+            .http_only(true)
+            .same_site(SameSite::Lax)
+            .path("/")
+            .build(),
+    );
+
+    Ok(Redirect::to("/admin"))
+}
+
+#[post("/auth/logout")]
+fn logout(cookies: &CookieJar<'_>) -> Redirect {
+    cookies.remove_private(Cookie::build(ADMIN_SESSION_COOKIE).path("/").build());
+    Redirect::to("/admin")
+}
+
+#[get("/api/admin/me")]
+fn admin_me(admin: AdminAuth) -> Json<AdminProfile> {
+    Json(AdminProfile {
+        email: admin.email,
+        name: admin.name,
+    })
+}
+
+#[get("/api/admin/inquiries")]
+async fn admin_inquiries(
+    admin: AdminAuth,
+    store: &State<Store>,
+) -> Result<Json<Vec<Inquiry>>, status::Custom<String>> {
+    let _ = admin;
+
+    match store.inner() {
+        Store::Surreal(db) => db.select("inquiry").await.map(Json).map_err(server_error),
+        Store::Memory(items) => Ok(Json(items.read().await.clone())),
+    }
 }
 
 #[post("/api/inquiries", format = "json", data = "<payload>")]
@@ -202,48 +384,18 @@ async fn create_inquiry(
     }
 }
 
-#[post("/api/admin/login", format = "json", data = "<payload>")]
-async fn admin_login(
-    sessions: &State<AdminSessions>,
-    payload: Json<AdminLoginRequest>,
-) -> Result<Json<AdminLoginResponse>, status::Custom<String>> {
-    let credentials = payload.into_inner();
-
-    if !valid_admin_credentials(&credentials.username, &credentials.password) {
-        return Err(status::Custom(
-            Status::Unauthorized,
-            "invalid admin credentials".to_owned(),
-        ));
-    }
-
-    let token = Uuid::new_v4().to_string();
-    sessions.write().await.insert(token.clone());
-
-    Ok(Json(AdminLoginResponse { token }))
-}
-
-#[get("/api/admin/inquiries")]
-async fn admin_inquiries(
-    store: &State<Store>,
-    sessions: &State<AdminSessions>,
-    token: AdminToken,
-) -> Result<Json<Vec<Inquiry>>, status::Custom<String>> {
-    list_admin_inquiries(store, sessions, token).await
-}
-
 #[patch(
     "/api/admin/inquiries/<id>/status",
     format = "json",
     data = "<payload>"
 )]
 async fn update_inquiry_status(
+    admin: AdminAuth,
     store: &State<Store>,
-    sessions: &State<AdminSessions>,
-    token: AdminToken,
     id: &str,
     payload: Json<InquiryStatusUpdate>,
 ) -> Result<Json<Inquiry>, status::Custom<String>> {
-    require_admin_token(sessions, &token).await?;
+    let _ = admin;
     let id = parse_inquiry_id(id)?;
     let next_status = normalize_inquiry_status(&payload.status)?;
 
@@ -278,12 +430,11 @@ async fn update_inquiry_status(
 
 #[delete("/api/admin/inquiries/<id>")]
 async fn delete_inquiry(
+    admin: AdminAuth,
     store: &State<Store>,
-    sessions: &State<AdminSessions>,
-    token: AdminToken,
     id: &str,
 ) -> Result<Status, status::Custom<String>> {
-    require_admin_token(sessions, &token).await?;
+    let _ = admin;
     let id = parse_inquiry_id(id)?;
 
     match store.inner() {
@@ -319,22 +470,6 @@ async fn delete_inquiry(
     }
 }
 
-async fn list_admin_inquiries(
-    store: &State<Store>,
-    sessions: &State<AdminSessions>,
-    token: AdminToken,
-) -> Result<Json<Vec<Inquiry>>, status::Custom<String>> {
-    require_admin_token(sessions, &token).await?;
-
-    match store.inner() {
-        Store::Surreal(db) => {
-            let inquiries: Vec<Inquiry> = db.select("inquiry").await.map_err(server_error)?;
-            Ok(Json(inquiries))
-        }
-        Store::Memory(items) => Ok(Json(items.read().await.clone())),
-    }
-}
-
 #[get("/<_..>", rank = 20)]
 async fn spa_fallback() -> Option<NamedFile> {
     NamedFile::open(static_dir().join("index.html")).await.ok()
@@ -343,7 +478,6 @@ async fn spa_fallback() -> Option<NamedFile> {
 #[rocket::main]
 async fn main() -> anyhow::Result<()> {
     let store = connect_store().await;
-    let admin_sessions: AdminSessions = Arc::new(RwLock::new(HashSet::new()));
 
     rocket::build()
         .configure(Config {
@@ -351,17 +485,21 @@ async fn main() -> anyhow::Result<()> {
             ..Config::debug_default()
         })
         .manage(store)
-        .manage(admin_sessions)
         .mount(
             "/",
             routes![
                 health,
                 site_content,
-                create_inquiry,
-                admin_login,
+                robots_txt,
+                sitemap_xml,
+                microsoft_login,
+                microsoft_callback,
+                logout,
+                admin_me,
                 admin_inquiries,
                 update_inquiry_status,
                 delete_inquiry,
+                create_inquiry,
                 spa_fallback
             ],
         )
@@ -371,6 +509,153 @@ async fn main() -> anyhow::Result<()> {
         .context("rocket failed")?;
 
     Ok(())
+}
+
+#[rocket::async_trait]
+impl<'r> FromRequest<'r> for AdminAuth {
+    type Error = AuthError;
+
+    async fn from_request(request: &'r Request<'_>) -> Outcome<Self, Self::Error> {
+        if let Some(admin) = admin_from_private_cookie(request.cookies()) {
+            return Outcome::Success(admin);
+        }
+
+        if bearer_token_allowed(request.headers()) {
+            return Outcome::Success(AdminAuth {
+                email: "api-token".to_owned(),
+                name: Some("Admin API token".to_owned()),
+            });
+        }
+
+        Outcome::Error((Status::Unauthorized, AuthError::Missing))
+    }
+}
+
+fn admin_from_private_cookie(cookies: &CookieJar<'_>) -> Option<AdminAuth> {
+    let cookie = cookies.get_private(ADMIN_SESSION_COOKIE)?;
+    let session: AdminSession = serde_json::from_str(cookie.value()).ok()?;
+
+    if !admin_email_allowed(&session.email) {
+        return None;
+    }
+
+    Some(AdminAuth {
+        email: session.email,
+        name: session.name,
+    })
+}
+
+fn bearer_token_allowed(headers: &HeaderMap<'_>) -> bool {
+    let Some(expected) = env::var("ADMIN_API_TOKEN")
+        .ok()
+        .filter(|token| !token.is_empty())
+    else {
+        return false;
+    };
+
+    headers
+        .get_one("Authorization")
+        .and_then(|value| value.strip_prefix("Bearer "))
+        .map(|token| token == expected)
+        .unwrap_or(false)
+}
+
+async fn exchange_microsoft_code(
+    code: &str,
+) -> Result<MicrosoftTokenResponse, status::Custom<String>> {
+    let client_id = env::var("MICROSOFT_CLIENT_ID").map_err(|_| {
+        status::Custom(
+            Status::InternalServerError,
+            "MICROSOFT_CLIENT_ID is required".to_owned(),
+        )
+    })?;
+    let client_secret = env::var("MICROSOFT_CLIENT_SECRET").map_err(|_| {
+        status::Custom(
+            Status::InternalServerError,
+            "MICROSOFT_CLIENT_SECRET is required".to_owned(),
+        )
+    })?;
+    let tenant = microsoft_tenant();
+    let redirect_uri = microsoft_redirect_uri();
+    let token_url = format!("https://login.microsoftonline.com/{tenant}/oauth2/v2.0/token");
+
+    reqwest::Client::new()
+        .post(token_url)
+        .form(&[
+            ("client_id", client_id.as_str()),
+            ("client_secret", client_secret.as_str()),
+            ("code", code),
+            ("redirect_uri", redirect_uri.as_str()),
+            ("grant_type", "authorization_code"),
+        ])
+        .send()
+        .await
+        .map_err(auth_server_error)?
+        .error_for_status()
+        .map_err(auth_server_error)?
+        .json::<MicrosoftTokenResponse>()
+        .await
+        .map_err(auth_server_error)
+}
+
+async fn fetch_microsoft_user(access_token: &str) -> Result<MicrosoftUser, status::Custom<String>> {
+    reqwest::Client::new()
+        .get("https://graph.microsoft.com/v1.0/me")
+        .bearer_auth(access_token)
+        .send()
+        .await
+        .map_err(auth_server_error)?
+        .error_for_status()
+        .map_err(auth_server_error)?
+        .json::<MicrosoftUser>()
+        .await
+        .map_err(auth_server_error)
+}
+
+fn microsoft_tenant() -> String {
+    env::var("MICROSOFT_TENANT_ID").unwrap_or_else(|_| "common".to_owned())
+}
+
+fn microsoft_redirect_uri() -> String {
+    env::var("MICROSOFT_REDIRECT_URI")
+        .unwrap_or_else(|_| "http://127.0.0.1:8080/auth/microsoft/callback".to_owned())
+}
+
+fn public_site_url() -> String {
+    env::var("PUBLIC_SITE_URL")
+        .unwrap_or_else(|_| "https://cooperco.example.com".to_owned())
+        .trim_end_matches('/')
+        .to_owned()
+}
+
+fn noindex_enabled() -> bool {
+    env::var("COOPERCO_NOINDEX")
+        .map(|value| matches!(value.as_str(), "1" | "true" | "TRUE" | "yes" | "YES"))
+        .unwrap_or(false)
+}
+
+fn admin_email_allowed(email: &str) -> bool {
+    env::var("ADMIN_ALLOWED_EMAILS")
+        .ok()
+        .map(|allowed| {
+            allowed
+                .split(',')
+                .map(|item| item.trim().to_ascii_lowercase())
+                .any(|allowed_email| allowed_email == email)
+        })
+        .unwrap_or(false)
+}
+
+fn percent_encode(value: &str) -> String {
+    value
+        .bytes()
+        .flat_map(|byte| match byte {
+            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'~' => {
+                vec![byte as char]
+            }
+            _ => format!("%{byte:02X}").chars().collect(),
+        })
+        .collect()
 }
 
 async fn connect_store() -> Store {
@@ -454,31 +739,18 @@ fn normalize_inquiry_status(status: &str) -> Result<String, status::Custom<Strin
     }
 }
 
-fn valid_admin_credentials(username: &str, password: &str) -> bool {
-    let configured_username =
-        env::var("COOPERCO_ADMIN_USER").unwrap_or_else(|_| "admin".to_owned());
-    let configured_password =
-        env::var("COOPERCO_ADMIN_PASS").unwrap_or_else(|_| "admin".to_owned());
-
-    username == configured_username && password == configured_password
-}
-
-async fn require_admin_token(
-    sessions: &AdminSessions,
-    token: &AdminToken,
-) -> Result<(), status::Custom<String>> {
-    if sessions.read().await.contains(&token.0) {
-        Ok(())
-    } else {
-        Err(status::Custom(
-            Status::Unauthorized,
-            "invalid admin credentials".to_owned(),
-        ))
-    }
-}
-
 fn server_error(error: surrealdb::Error) -> status::Custom<String> {
     status::Custom(Status::InternalServerError, error.to_string())
+}
+
+fn auth_server_error(error: reqwest::Error) -> status::Custom<String> {
+    let status = if error.status() == Some(reqwest::StatusCode::UNAUTHORIZED) {
+        Status::Unauthorized
+    } else {
+        Status::InternalServerError
+    };
+
+    status::Custom(status, error.to_string())
 }
 
 fn static_dir() -> PathBuf {
@@ -504,8 +776,8 @@ fn seed_content() -> SiteContent {
             email: "cooper.copetservices@gmail.com".to_owned(),
             facebook_url: "https://www.facebook.com/CooperAndCoPet".to_owned(),
             yelp_url: "https://m.yelp.com/biz/cooper-and-company-elyria".to_owned(),
-            intro: "Pet support for families in Lorain County, with class updates and booking handled directly by Cooper & Co.".to_owned(),
-            hero_image: "https://scontent-ord5-3.xx.fbcdn.net/v/t39.30808-6/642365926_122126318187116749_1263209954982424911_n.jpg?stp=dst-jpg_tt6&cstp=mx850x315&ctp=s850x315&_nc_cat=109&ccb=1-7&_nc_sid=cc71e4&_nc_ohc=YgBZS2Y2cIIQ7kNvwE6wWc1&_nc_oc=Adp6qZnwOPKmsH-P7WLn-Qi3NAm4iRj8LUXeorKSU7TZGtxYSmmUzQHHVLhjI4uO67U&_nc_zt=23&_nc_ht=scontent-ord5-3.xx&_nc_gid=mvj5NsrB-bhghI4HuF5-1A&_nc_ss=7b289&oh=00_Af8uQAkKPQNHbSMJT_M1dcsc77LWXluS0oRmbUhibqkllg&oe=6A452862".to_owned(),
+            intro: "Cooper & Co. helps local pet families ask about dog training, group classes, puppy classes, and pet support across Lorain County, Elyria, Lorain, Amherst, Avon, and North Ridgeville, Ohio.".to_owned(),
+            hero_image: "/assets/cooperco-pet-services-hero.webp".to_owned(),
         },
         stats: vec![
             Stat {
@@ -523,35 +795,35 @@ fn seed_content() -> SiteContent {
         ],
         services: vec![
             Service {
-                title: "Group classes".to_owned(),
-                summary: "Seasonal class announcements and availability are highlighted from the public Facebook page.".to_owned(),
+                title: "Group dog classes".to_owned(),
+                summary: "Seasonal group classes help dogs practice calm focus, leash manners, and social learning around other pets.".to_owned(),
             },
             Service {
-                title: "Pet service inquiries".to_owned(),
-                summary: "A short contact flow captures pet details, owner contact information, and the help requested.".to_owned(),
+                title: "Puppy classes and training questions".to_owned(),
+                summary: "Ask about age-appropriate puppy support, early manners, confidence building, and current class availability.".to_owned(),
             },
             Service {
-                title: "Local support".to_owned(),
-                summary: "Focused on pet families across Lorain County with direct phone and email contact.".to_owned(),
+                title: "Local pet service inquiries".to_owned(),
+                summary: "Share your pet details, goals, schedule needs, and location so Cooper & Co. can respond directly.".to_owned(),
             },
         ],
         updates: vec![Update {
-            title: "Summer group classes".to_owned(),
-            summary: "The latest visible Facebook update promotes summer group classes. Contact Cooper & Co. for current times and openings.".to_owned(),
-            source_label: "Facebook post, May 10".to_owned(),
+            title: "Ask about upcoming group dog classes".to_owned(),
+            summary: "Class times and openings can change. Contact Cooper & Co. for the latest dog training and group class schedule.".to_owned(),
+            source_label: "Current availability".to_owned(),
         }],
         gallery: vec![
             GalleryImage {
-                src: "https://scontent-ord5-1.xx.fbcdn.net/v/t39.30808-6/696722380_122136771933116749_5005000033412355237_n.jpg?stp=dst-jpg_tt6&cstp=mx1206x1206&ctp=s160x160&_nc_cat=111&ccb=1-7&_nc_sid=09d16d&_nc_ohc=JsAsHJCGwcMQ7kNvwFaTowy&_nc_oc=AdqsEPdRsmqSKvTm6-WMNV45aHS3X-kEpSG0w-NkvnKyZ_saGStYvRNGbor_GIIxm7Q&_nc_zt=23&_nc_ht=scontent-ord5-1.xx&_nc_gid=mvj5NsrB-bhghI4HuF5-1A&_nc_ss=7b289&oh=00_Af_8VRu4XN_x4tgpVo5giq-UBcRRY4QzMlZQ_26zTpCgSg&oe=6A450FB6".to_owned(),
-                alt: "Cooper & Co. Facebook gallery item".to_owned(),
+                src: "/assets/group-dog-classes-lorain-county.webp".to_owned(),
+                alt: "Dogs practicing calm focus during a Cooper & Co. group dog class in Lorain County, Ohio".to_owned(),
             },
             GalleryImage {
-                src: "https://scontent-ord5-1.xx.fbcdn.net/v/t39.30808-6/697792713_122136770193116749_6164835244999125676_n.jpg?stp=c0.107.1206.1206a_cp6_dst-jpg_tt6&cstp=mx1206x1206&ctp=s160x160&_nc_cat=108&ccb=1-7&_nc_sid=8a6525&_nc_ohc=kJRpguVDutYQ7kNvwG80Nde&_nc_oc=Adqu1GzkMCpJRyZmMBeR5DNqKEOvPlbeOAvMCG6_cPPbFAe_9vwH7jpg-HbmtXW9PMQ&_nc_zt=23&_nc_ht=scontent-ord5-1.xx&_nc_gid=mvj5NsrB-bhghI4HuF5-1A&_nc_ss=7b289&oh=00_Af9X1NSjEEd5y2aPAu-gKNBVSxNt713qsUSJ-72h_53BXw&oe=6A452A12".to_owned(),
-                alt: "Cooper & Co. Facebook gallery item".to_owned(),
+                src: "/assets/puppy-training-lorain-county.webp".to_owned(),
+                alt: "Puppy learning basic attention skills during local pet service support in Lorain County, Ohio".to_owned(),
             },
             GalleryImage {
-                src: "https://scontent-ord5-2.xx.fbcdn.net/v/t39.30808-6/691710795_122136487347116749_7323625458125376568_n.jpg?stp=c0.119.1086.1086a_dst-jpg_tt6&cstp=mx1086x1086&ctp=s160x160&_nc_cat=104&ccb=1-7&_nc_sid=8a6525&_nc_ohc=7KGiODw34dgQ7kNvwEN1_rU&_nc_oc=AdrmEAKck0at6TOOBjGVeikPuV80YT9G8-__xhdoPIeLL1bztNkEJBgtJhxQ7J7xlZk&_nc_zt=23&_nc_ht=scontent-ord5-2.xx&_nc_gid=mvj5NsrB-bhghI4HuF5-1A&_nc_ss=7b289&oh=00_Af87OvLYcS9_HvmU3uE2dlz_-GZZe-Q_l_5g3rrq87QYlA&oe=6A453359".to_owned(),
-                alt: "Cooper & Co. Facebook gallery item".to_owned(),
+                src: "/assets/cooperco-pet-services-hero.webp".to_owned(),
+                alt: "Leashed dog in a park setting representing Cooper & Co. pet services in Lorain County, Ohio".to_owned(),
             },
         ],
     }

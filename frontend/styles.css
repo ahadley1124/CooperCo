@@ -25,6 +25,32 @@ a {
   color: inherit;
 }
 
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+summary:focus-visible {
+  outline: 3px solid #f5c874;
+  outline-offset: 3px;
+}
+
+.skip-link {
+  position: absolute;
+  left: 12px;
+  top: 12px;
+  z-index: 100;
+  transform: translateY(-140%);
+  border-radius: 8px;
+  padding: 10px 14px;
+  background: #fff;
+  color: #17201b;
+  font-weight: 850;
+}
+
+.skip-link:focus {
+  transform: translateY(0);
+}
+
 .topbar {
   position: sticky;
   top: 0;
@@ -67,6 +93,7 @@ footer {
 }
 
 nav {
+  flex-wrap: wrap;
   gap: clamp(12px, 3vw, 28px);
   font-size: 0.94rem;
   font-weight: 700;
@@ -247,6 +274,11 @@ form {
   padding: 24px;
 }
 
+.card a {
+  color: #285c4d;
+  font-weight: 850;
+}
+
 .card p,
 .update p,
 .contact-copy {
@@ -338,6 +370,11 @@ textarea {
   font: inherit;
 }
 
+input:invalid,
+textarea:invalid {
+  box-shadow: none;
+}
+
 textarea {
   min-height: 132px;
   resize: vertical;
@@ -355,6 +392,31 @@ button:disabled {
   font-weight: 800;
 }
 
+.faq {
+  background: #fff;
+}
+
+.faq details {
+  border-top: 1px solid rgba(23, 32, 27, 0.14);
+  padding: 18px 0;
+}
+
+.faq details:last-child {
+  border-bottom: 1px solid rgba(23, 32, 27, 0.14);
+}
+
+.faq summary {
+  cursor: pointer;
+  color: #17201b;
+  font-weight: 850;
+}
+
+.faq details p {
+  max-width: 780px;
+  margin: 12px 0 0;
+  color: #59625d;
+}
+
 footer {
   justify-content: space-between;
   gap: 16px;
@@ -369,6 +431,13 @@ footer {
   place-items: center;
   align-content: center;
   gap: 18px;
+  color: #17201b;
+}
+
+.noscript-note {
+  margin: 0;
+  padding: 18px clamp(18px, 4vw, 56px);
+  background: #fff;
   color: #17201b;
 }
 
@@ -392,7 +461,6 @@ footer {
 }
 
 .admin-heading {
-  justify-content: flex-start;
   margin-bottom: 28px;
 }
 
@@ -401,9 +469,26 @@ footer {
   font-size: clamp(2.4rem, 7vw, 5rem);
 }
 
+.admin-heading p {
+  margin-bottom: 0;
+  color: #59625d;
+}
+
+.admin-heading form {
+  display: block;
+  border: 0;
+  padding: 0;
+  background: transparent;
+}
+
 .admin-login {
-  max-width: 440px;
+  width: min(100%, 460px);
   grid-template-columns: 1fr;
+  margin: 12vh auto 0;
+  border: 1px solid rgba(23, 32, 27, 0.12);
+  border-radius: 8px;
+  padding: clamp(24px, 5vw, 40px);
+  background: #fff;
 }
 
 .admin-list {
@@ -424,9 +509,9 @@ footer {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(280px, 0.9fr);
   gap: 22px;
-  padding: 22px;
   border: 1px solid rgba(23, 32, 27, 0.12);
   border-radius: 8px;
+  padding: 22px;
   background: #fff;
 }
 
@@ -523,7 +608,6 @@ footer {
   color: #59625d;
   font-weight: 750;
 }
-
 @media (max-width: 820px) {
   .topbar,
   footer {
