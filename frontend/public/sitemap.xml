@@ -1,13 +1,23 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-  <url><loc>https://cooperco.example.com/</loc><changefreq>monthly</changefreq><priority>1.0</priority></url>
-  <url><loc>https://cooperco.example.com/services</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>
-  <url><loc>https://cooperco.example.com/group-classes</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>
-  <url><loc>https://cooperco.example.com/contact</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>
-  <url><loc>https://cooperco.example.com/service-area/lorain-county-oh</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>
-  <url><loc>https://cooperco.example.com/service-area/elyria-oh</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>
-  <url><loc>https://cooperco.example.com/service-area/lorain-oh</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>
-  <url><loc>https://cooperco.example.com/service-area/amherst-oh</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>
-  <url><loc>https://cooperco.example.com/service-area/avon-oh</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>
-  <url><loc>https://cooperco.example.com/service-area/north-ridgeville-oh</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://beta.cooper-and-co.com/</loc><changefreq>monthly</changefreq><priority>1.0</priority></url>
+  <url><loc>https://beta.cooper-and-co.com/services</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://beta.cooper-and-co.com/group-classes</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://beta.cooper-and-co.com/contact</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://beta.cooper-and-co.com/service-area/lorain-county-oh</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://beta.cooper-and-co.com/service-area/elyria-oh</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://beta.cooper-and-co.com/service-area/lorain-oh</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://beta.cooper-and-co.com/service-area/amherst-oh</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://beta.cooper-and-co.com/service-area/avon-oh</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://beta.cooper-and-co.com/service-area/north-ridgeville-oh</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://cooper-and-co.com/</loc><changefreq>monthly</changefreq><priority>1.0</priority></url>
+  <url><loc>https://cooper-and-co.com/services</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://cooper-and-co.com/group-classes</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://cooper-and-co.com/contact</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://cooper-and-co.com/service-area/lorain-county-oh</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://cooper-and-co.com/service-area/elyria-oh</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://cooper-and-co.com/service-area/lorain-oh</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://cooper-and-co.com/service-area/amherst-oh</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://cooper-and-co.com/service-area/avon-oh</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://cooper-and-co.com/service-area/north-ridgeville-oh</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>
 </urlset>

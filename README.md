@@ -113,7 +113,7 @@ $env:ADMIN_API_TOKEN="use-a-long-random-token"
 Rocket serves `robots.txt` and `sitemap.xml` explicitly. Set the public production URL before deployment so sitemap entries, canonical URLs, and social previews point at the live domain:
 
 ```powershell
-$env:PUBLIC_SITE_URL="https://your-production-domain.example"
+$env:PUBLIC_SITE_URLS="https://beta.cooper-and-co.com,https://cooper-and-co.com"
 ```
 
 Production is indexable by default. For beta or staging deployments only, block crawlers with:
@@ -122,7 +122,7 @@ Production is indexable by default. For beta or staging deployments only, block 
 $env:COOPERCO_NOINDEX="true"
 ```
 
-The frontend build also copies static fallback files from `frontend/public/robots.txt` and `frontend/public/sitemap.xml` for deployments that serve `frontend/dist` directly. Replace the placeholder domain in those files when setting the production domain.
+The frontend build also copies static fallback files from `frontend/public/robots.txt` and `frontend/public/sitemap.xml` for deployments that serve `frontend/dist` directly.
 
 ## SurrealDB Configuration
 
