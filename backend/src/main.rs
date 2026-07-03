@@ -178,11 +178,14 @@ fn site_content() -> Json<SiteContent> {
 
 #[get("/robots.txt")]
 fn robots_txt() -> RawText<String> {
-    let site_url = public_site_url();
     let body = if noindex_enabled() {
         "User-agent: *\nDisallow: /\n".to_owned()
     } else {
-        format!("User-agent: *\nAllow: /\nSitemap: {site_url}/sitemap.xml\n")
+        let sitemaps = public_site_urls()
+            .into_iter()
+            .map(|site_url| format!("Sitemap: {site_url}/sitemap.xml\n"))
+            .collect::<String>();
+        format!("User-agent: *\nAllow: /\n{sitemaps}")
     };
 
     RawText(body)
@@ -190,7 +193,7 @@ fn robots_txt() -> RawText<String> {
 
 #[get("/sitemap.xml")]
 fn sitemap_xml() -> RawXml<String> {
-    let site_url = public_site_url();
+    let site_urls = public_site_urls();
     let paths = [
         "/",
         "/services",
@@ -204,13 +207,15 @@ fn sitemap_xml() -> RawXml<String> {
         "/service-area/north-ridgeville-oh",
     ];
 
-    let urls = paths
+    let urls = site_urls
         .iter()
-        .map(|path| {
-            format!(
-                "<url><loc>{site_url}{path}</loc><changefreq>monthly</changefreq><priority>{priority}</priority></url>",
-                priority = if *path == "/" { "1.0" } else { "0.8" }
-            )
+        .flat_map(|site_url| {
+            paths.iter().map(move |path| {
+                format!(
+                    "<url><loc>{site_url}{path}</loc><changefreq>monthly</changefreq><priority>{priority}</priority></url>",
+                    priority = if *path == "/" { "1.0" } else { "0.8" }
+                )
+            })
         })
         .collect::<String>();
 
@@ -621,11 +626,14 @@ fn microsoft_redirect_uri() -> String {
         .unwrap_or_else(|_| "http://127.0.0.1:8080/auth/microsoft/callback".to_owned())
 }
 
-fn public_site_url() -> String {
-    env::var("PUBLIC_SITE_URL")
-        .unwrap_or_else(|_| "https://cooperco.example.com".to_owned())
-        .trim_end_matches('/')
-        .to_owned()
+fn public_site_urls() -> Vec<String> {
+    env::var("PUBLIC_SITE_URLS")
+        .or_else(|_| env::var("PUBLIC_SITE_URL"))
+        .unwrap_or_else(|_| "https://beta.cooper-and-co.com,https://cooper-and-co.com".to_owned())
+        .split(',')
+        .map(|url| url.trim().trim_end_matches('/').to_owned())
+        .filter(|url| !url.is_empty())
+        .collect()
 }
 
 fn noindex_enabled() -> bool {
