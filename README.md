@@ -80,7 +80,47 @@ cd ../backend
 cargo run
 ```
 
-Open `http://127.0.0.1:8080`.
+Open `http://127.0.0.1:9001`.
+
+## Admin Login
+
+The admin area is available at `/admin` and uses Microsoft OAuth. Create a Microsoft Entra app registration with this redirect URI:
+
+```text
+http://127.0.0.1:8080/auth/microsoft/callback
+```
+
+Set these environment variables before starting the backend:
+
+```powershell
+$env:MICROSOFT_CLIENT_ID="..."
+$env:MICROSOFT_CLIENT_SECRET="..."
+$env:MICROSOFT_TENANT_ID="common" # or your tenant ID
+$env:MICROSOFT_REDIRECT_URI="http://127.0.0.1:8080/auth/microsoft/callback"
+$env:ADMIN_ALLOWED_EMAILS="admin@example.com,second-admin@example.com"
+```
+
+Rocket private cookies require a stable production secret key. Set `ROCKET_SECRET_KEY` in deployment so existing admin sessions remain valid across restarts.
+
+Admin APIs under `/api/admin/*` require either a valid Microsoft admin session cookie or an `Authorization: Bearer <token>` header matching `ADMIN_API_TOKEN`:
+
+```powershell
+$env:ADMIN_API_TOKEN="use-a-long-random-token"
+```
+
+## SEO Configuration
+
+Rocket serves `robots.txt` and `sitemap.xml` explicitly. Set the public production URL before deployment so sitemap entries, canonical URLs, and social previews point at the live domain:
+
+```powershell
+$env:PUBLIC_SITE_URL="https://your-production-domain.example"
+```
+
+Production is indexable by default. For beta or staging deployments only, block crawlers with:
+
+```powershell
+$env:COOPERCO_NOINDEX="true"
+```
 
 ## SurrealDB Configuration
 
@@ -90,7 +130,7 @@ When you have SurrealDB set up, provide these env vars before starting Rocket:
 trunk serve --config frontend/Trunk.toml
 ```
 
-Frontend is available at `http://127.0.0.1:8080` and proxies `/api/*` to the backend.
+Frontend is available at `http://127.0.0.1:9000` and proxies `/api/*` to the backend on `http://127.0.0.1:9001`.
 
 ## Extend Next
 
