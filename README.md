@@ -122,6 +122,8 @@ Production is indexable by default. For beta or staging deployments only, block 
 $env:COOPERCO_NOINDEX="true"
 ```
 
+The frontend build also copies static fallback files from `frontend/public/robots.txt` and `frontend/public/sitemap.xml` for deployments that serve `frontend/dist` directly. Replace the placeholder domain in those files when setting the production domain.
+
 ## SurrealDB Configuration
 
 When you have SurrealDB set up, provide these env vars before starting Rocket:
