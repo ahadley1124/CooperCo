@@ -191,6 +191,11 @@ fn robots_txt() -> RawText<String> {
     RawText(body)
 }
 
+#[get("/robots")]
+fn robots() -> RawText<String> {
+    robots_txt()
+}
+
 #[get("/sitemap.xml")]
 fn sitemap_xml() -> RawXml<String> {
     let site_urls = public_site_urls();
@@ -496,6 +501,7 @@ async fn main() -> anyhow::Result<()> {
                 health,
                 site_content,
                 robots_txt,
+                robots,
                 sitemap_xml,
                 microsoft_login,
                 microsoft_callback,
@@ -785,7 +791,7 @@ fn seed_content() -> SiteContent {
             facebook_url: "https://www.facebook.com/CooperAndCoPet".to_owned(),
             yelp_url: "https://m.yelp.com/biz/cooper-and-company-elyria".to_owned(),
             intro: "Cooper & Co. helps local pet families ask about dog training, group classes, puppy classes, and pet support across Lorain County, Elyria, Lorain, Amherst, Avon, and North Ridgeville, Ohio.".to_owned(),
-            hero_image: "/assets/cooperco-pet-services-hero.webp".to_owned(),
+            hero_image: "/assets/facebook-cooperco-hero.webp".to_owned(),
         },
         stats: vec![
             Stat {
@@ -822,16 +828,16 @@ fn seed_content() -> SiteContent {
         }],
         gallery: vec![
             GalleryImage {
-                src: "/assets/group-dog-classes-lorain-county.webp".to_owned(),
-                alt: "Dogs practicing calm focus during a Cooper & Co. group dog class in Lorain County, Ohio".to_owned(),
+                src: "/assets/facebook-cooperco-gallery-1.webp".to_owned(),
+                alt: "Cooper & Co. pet services logo from the public Facebook page".to_owned(),
             },
             GalleryImage {
-                src: "/assets/puppy-training-lorain-county.webp".to_owned(),
-                alt: "Puppy learning basic attention skills during local pet service support in Lorain County, Ohio".to_owned(),
+                src: "/assets/facebook-cooperco-gallery-2.webp".to_owned(),
+                alt: "Cooper & Co. pet services logo from the public Facebook page".to_owned(),
             },
             GalleryImage {
-                src: "/assets/cooperco-pet-services-hero.webp".to_owned(),
-                alt: "Leashed dog in a park setting representing Cooper & Co. pet services in Lorain County, Ohio".to_owned(),
+                src: "/assets/facebook-cooperco-gallery-3.webp".to_owned(),
+                alt: "Cooper & Co. pet services logo from the public Facebook page".to_owned(),
             },
         ],
     }

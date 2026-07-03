@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+Sitemap: https://beta.cooper-and-co.com/sitemap.xml
+Sitemap: https://cooper-and-co.com/sitemap.xml
