@@ -214,11 +214,19 @@ fn sitemap_xml() -> RawXml<String> {
 
     let urls = site_urls
         .iter()
-        .flat_map(|site_url| {
+        .enumerate()
+        .flat_map(|(site_index, site_url)| {
             paths.iter().map(move |path| {
+                let priority = if site_index == 0 {
+                    if *path == "/" { "1.0" } else { "0.8" }
+                } else if *path == "/" {
+                    "0.6"
+                } else {
+                    "0.5"
+                };
+
                 format!(
-                    "<url><loc>{site_url}{path}</loc><changefreq>monthly</changefreq><priority>{priority}</priority></url>",
-                    priority = if *path == "/" { "1.0" } else { "0.8" }
+                    "<url><loc>{site_url}{path}</loc><changefreq>monthly</changefreq><priority>{priority}</priority></url>"
                 )
             })
         })
@@ -635,7 +643,7 @@ fn microsoft_redirect_uri() -> String {
 fn public_site_urls() -> Vec<String> {
     env::var("PUBLIC_SITE_URLS")
         .or_else(|_| env::var("PUBLIC_SITE_URL"))
-        .unwrap_or_else(|_| "https://beta.cooper-and-co.com,https://cooper-and-co.com".to_owned())
+        .unwrap_or_else(|_| "https://cooper-and-co.com,https://beta.cooper-and-co.com".to_owned())
         .split(',')
         .map(|url| url.trim().trim_end_matches('/').to_owned())
         .filter(|url| !url.is_empty())
