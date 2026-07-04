@@ -41,6 +41,16 @@ Rust workspace for a Cooper & Co. pet-service website:
 1. Copy environment template:
 
    PowerShell:
+
+   ```powershell
+   Copy-Item backend/.env.example backend/.env
+   ```
+
+   The backend loads `.env` on startup. Values in `backend/.env` are the primary source. Shell environment variables are used only when a key is missing from `.env`.
+
+2. To use the built-in memory fallback, leave `SURREALDB_URL` unset or empty.
+3. To use an external SurrealDB instance, populate all SurrealDB env vars in `backend/.env`.
+
 ## Public Facebook Details Used
 
 The initial content was taken from the public Facebook page at `https://www.facebook.com/CooperAndCoPet`:
@@ -68,9 +78,6 @@ Build the frontend:
 cd frontend
 trunk build
 ```
-
-2. To use the built-in file-backed database, leave `SURREALDB_USERNAME` and `SURREALDB_PASSWORD` unset and keep `SURREALDB_PATH` pointed at a writable folder.
-3. To use an external SurrealDB instance, populate all SurrealDB env vars in `backend/.env`.
 
 ## Run Backend
 Run the backend:
@@ -132,17 +139,17 @@ Required delegated Microsoft Graph scopes:
 openid profile email User.Read
 ```
 
-Set these environment variables before starting Rocket locally:
+Set these values in `backend/.env` before starting Rocket locally. Shell environment variables are only used for keys that are not present in `backend/.env`:
 
-```powershell
-$env:MICROSOFT_CLIENT_ID="..."
-$env:MICROSOFT_CLIENT_SECRET="..." # optional when using PKCE as a public client; recommended for confidential web apps
-$env:MICROSOFT_TENANT_ID="common" # or your tenant ID
-$env:BACKEND_BASE_URL="http://127.0.0.1:9000"
-$env:PUBLIC_APP_URL="http://127.0.0.1:9000"
-$env:MICROSOFT_REDIRECT_URI="http://127.0.0.1:9000/auth/microsoft/callback"
-$env:MICROSOFT_POST_LOGIN_REDIRECT_URI="http://127.0.0.1:9000/admin"
-$env:ADMIN_ALLOWED_EMAILS="admin@example.com,second-admin@example.com"
+```dotenv
+MICROSOFT_CLIENT_ID=...
+MICROSOFT_CLIENT_SECRET=... # optional when using PKCE as a public client; recommended for confidential web apps
+MICROSOFT_TENANT_ID=common # or your tenant ID
+BACKEND_BASE_URL=http://127.0.0.1:9000
+PUBLIC_APP_URL=http://127.0.0.1:9000
+MICROSOFT_REDIRECT_URI=http://127.0.0.1:9000/auth/microsoft/callback
+MICROSOFT_POST_LOGIN_REDIRECT_URI=http://127.0.0.1:9000/admin
+ADMIN_ALLOWED_EMAILS=admin@example.com,second-admin@example.com
 ```
 
 Cookie settings:
@@ -176,8 +183,8 @@ Then start Rocket on `http://127.0.0.1:9001` and Trunk on `http://127.0.0.1:9000
 
 Admin APIs under `/api/admin/*` require either a valid Microsoft admin session cookie or an `Authorization: Bearer <token>` header matching `ADMIN_API_TOKEN`:
 
-```powershell
-$env:ADMIN_API_TOKEN="use-a-long-random-token"
+```dotenv
+ADMIN_API_TOKEN=use-a-long-random-token
 ```
 
 ## SEO Configuration
@@ -198,7 +205,7 @@ The frontend build also copies static fallback files from `frontend/public/robot
 
 ## SurrealDB Configuration
 
-When you have SurrealDB set up, provide these env vars before starting Rocket:
+When you have SurrealDB set up, provide the SurrealDB values in `backend/.env` before starting Rocket.
 
 ```powershell
 trunk serve --config frontend/Trunk.toml

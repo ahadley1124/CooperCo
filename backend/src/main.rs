@@ -1,4 +1,5 @@
 use std::{
+    collections::HashMap,
     env,
     path::PathBuf,
     sync::Arc,
@@ -22,7 +23,7 @@ use rocket::{
     routes,
     serde::json::Json,
     time::Duration,
-    Config, Request, State,
+    Request, State,
 };
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -634,13 +635,10 @@ async fn spa_fallback() -> Option<NamedFile> {
 
 #[rocket::main]
 async fn main() -> anyhow::Result<()> {
+    load_dotenv_files();
     let store = connect_store().await;
 
     rocket::build()
-        .configure(Config {
-            port: 9001,
-            ..Config::debug_default()
-        })
         .manage(store)
         .mount(
             "/",
@@ -667,6 +665,50 @@ async fn main() -> anyhow::Result<()> {
         .context("rocket failed")?;
 
     Ok(())
+}
+
+fn load_dotenv_files() {
+    if !load_dotenv_paths(&dotenv_candidate_paths()) {
+        eprintln!("No backend .env file found; using shell environment and defaults");
+    }
+}
+
+fn load_dotenv_paths(paths: &[PathBuf]) -> bool {
+    let shell_env = env::vars().collect::<HashMap<_, _>>();
+    let mut loaded = false;
+
+    for path in paths {
+        if path.is_file() {
+            match dotenvy::from_path_override(&path) {
+                Ok(_) => {
+                    eprintln!("Loaded backend environment from {}", path.display());
+                    loaded = true;
+                }
+                Err(error) => {
+                    eprintln!("Could not load {}: {error}", path.display());
+                }
+            }
+        }
+    }
+
+    for (key, value) in shell_env {
+        if env::var_os(&key).is_none() {
+            env::set_var(key, value);
+        }
+    }
+
+    loaded
+}
+
+fn dotenv_candidate_paths() -> Vec<PathBuf> {
+    let mut paths = Vec::new();
+
+    if let Ok(current_dir) = env::current_dir() {
+        paths.push(current_dir.join(".env"));
+        paths.push(current_dir.join("backend").join(".env"));
+    }
+
+    paths
 }
 
 #[rocket::async_trait]
@@ -1392,6 +1434,7 @@ fn seed_content() -> SiteContent {
 mod tests {
     use super::*;
     use rocket::local::blocking::Client;
+    use std::fs;
     use std::sync::Mutex;
 
     static ENV_LOCK: Mutex<()> = Mutex::new(());
@@ -1412,6 +1455,42 @@ mod tests {
             rocket::build().mount("/", routes![microsoft_login, microsoft_callback, logout]),
         )
         .expect("valid rocket")
+    }
+
+    #[test]
+    fn dotenv_file_values_override_shell_and_shell_fills_missing_keys() {
+        let _guard = ENV_LOCK.lock().unwrap_or_else(|error| error.into_inner());
+        let dir = env::temp_dir().join(format!("cooperco-dotenv-test-{}", Uuid::new_v4()));
+        fs::create_dir_all(&dir).unwrap();
+        let path = dir.join(".env");
+        fs::write(
+            &path,
+            "COOPERCO_TEST_DOTENV_OVERRIDE=file-value\nCOOPERCO_TEST_DOTENV_FILE_ONLY=file-only\n",
+        )
+        .unwrap();
+
+        env::set_var("COOPERCO_TEST_DOTENV_OVERRIDE", "shell-value");
+        env::set_var("COOPERCO_TEST_DOTENV_SHELL_ONLY", "shell-only");
+        env::remove_var("COOPERCO_TEST_DOTENV_FILE_ONLY");
+
+        assert!(load_dotenv_paths(&[path]));
+        assert_eq!(
+            env::var("COOPERCO_TEST_DOTENV_OVERRIDE").as_deref(),
+            Ok("file-value")
+        );
+        assert_eq!(
+            env::var("COOPERCO_TEST_DOTENV_FILE_ONLY").as_deref(),
+            Ok("file-only")
+        );
+        assert_eq!(
+            env::var("COOPERCO_TEST_DOTENV_SHELL_ONLY").as_deref(),
+            Ok("shell-only")
+        );
+
+        env::remove_var("COOPERCO_TEST_DOTENV_OVERRIDE");
+        env::remove_var("COOPERCO_TEST_DOTENV_FILE_ONLY");
+        env::remove_var("COOPERCO_TEST_DOTENV_SHELL_ONLY");
+        fs::remove_dir_all(dir).unwrap();
     }
 
     #[test]
