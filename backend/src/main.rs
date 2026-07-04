@@ -1,6 +1,7 @@
 use std::{
     collections::HashMap,
     env,
+    net::{IpAddr, Ipv4Addr},
     path::PathBuf,
     sync::Arc,
     time::{SystemTime, UNIX_EPOCH},
@@ -23,7 +24,7 @@ use rocket::{
     routes,
     serde::json::Json,
     time::Duration,
-    Build, Request, Rocket, State,
+    Build, Config, Request, Rocket, State,
 };
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -658,6 +659,11 @@ async fn main() -> anyhow::Result<()> {
 
 fn build_rocket(store: Store) -> Rocket<Build> {
     rocket::build()
+        .configure(Config {
+            address: IpAddr::V4(Ipv4Addr::UNSPECIFIED),
+            port: 9001,
+            ..Config::debug_default()
+        })
         .manage(store)
         .mount(
             "/",
