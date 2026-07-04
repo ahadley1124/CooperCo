@@ -9,5 +9,5 @@ license.workspace = true
 gloo-net = "0.6"
 serde = { version = "1", features = ["derive"] }
 wasm-bindgen-futures = "0.4"
-web-sys = { version = "0.3", features = ["HtmlInputElement", "HtmlTextAreaElement", "Location", "Window"] }
+web-sys = { version = "0.3", features = ["Document", "Element", "HtmlInputElement", "HtmlTextAreaElement", "Location", "Window"] }
 yew = { version = "0.21", features = ["csr"] }

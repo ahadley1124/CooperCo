@@ -82,17 +82,140 @@ struct InquiryForm {
     message: String,
 }
 
+#[derive(Clone, Debug, PartialEq, Properties)]
+struct PublicPageProps {
+    route: PublicRoute,
+}
+
+#[derive(Clone, Copy)]
+struct SeoService {
+    slug: &'static str,
+    name: &'static str,
+    summary: &'static str,
+    title: &'static str,
+}
+
+#[derive(Clone, Copy)]
+struct SeoLocation {
+    slug: &'static str,
+    name: &'static str,
+    county_hint: &'static str,
+}
+
+#[derive(Clone, Copy)]
+struct FaqItem {
+    question: &'static str,
+    answer: &'static str,
+}
+
+const SEO_SERVICES: &[SeoService] = &[
+    SeoService {
+        slug: "dog-walking",
+        name: "Dog walking",
+        summary: "Structured dog walking inquiry pages with schedule, leash, and neighborhood notes ready for owner-confirmed details.",
+        title: "Dog Walking",
+    },
+    SeoService {
+        slug: "dog-training",
+        name: "Dog training",
+        summary: "Dog training inquiry pages for goals, behavior notes, puppy basics, and current availability questions.",
+        title: "Dog Training",
+    },
+    SeoService {
+        slug: "pet-sitting",
+        name: "Pet sitting",
+        summary: "Pet sitting inquiry pages with feeding, medication, routine, and visit detail placeholders.",
+        title: "Pet Sitting",
+    },
+    SeoService {
+        slug: "house-sitting",
+        name: "House sitting",
+        summary: "House sitting inquiry pages for pet routines, home access, plant/mail notes, and overnight fit.",
+        title: "House Sitting",
+    },
+    SeoService {
+        slug: "puppy-care",
+        name: "Puppy care",
+        summary: "Puppy care inquiry pages for potty breaks, crate routines, socialization, and young-dog schedule needs.",
+        title: "Puppy Care",
+    },
+    SeoService {
+        slug: "dog-adventures",
+        name: "Dog adventures",
+        summary: "Dog adventure inquiry pages for enrichment walks, outings, transportation notes, and safety fit.",
+        title: "Dog Adventures",
+    },
+];
+
+const SEO_LOCATIONS: &[SeoLocation] = &[
+    SeoLocation {
+        slug: "mansfield-oh",
+        name: "Mansfield, OH",
+        county_hint: "Richland County",
+    },
+    SeoLocation {
+        slug: "ontario-oh",
+        name: "Ontario, OH",
+        county_hint: "Richland County",
+    },
+    SeoLocation {
+        slug: "lexington-oh",
+        name: "Lexington, OH",
+        county_hint: "Richland County",
+    },
+    SeoLocation {
+        slug: "bellville-oh",
+        name: "Bellville, OH",
+        county_hint: "Richland County",
+    },
+    SeoLocation {
+        slug: "ashland-oh",
+        name: "Ashland, OH",
+        county_hint: "Ashland County",
+    },
+    SeoLocation {
+        slug: "galion-oh",
+        name: "Galion, OH",
+        county_hint: "Crawford/Richland County area",
+    },
+];
+
+const SERVICE_FAQS: &[FaqItem] = &[
+    FaqItem {
+        question: "How do I confirm current availability?",
+        answer: "Use the contact form or call Cooper & Co. with your city, pet details, dates, and service goals. TODO: owner should add current booking windows.",
+    },
+    FaqItem {
+        question: "Are prices listed online?",
+        answer: "Pricing is intentionally owner-confirmed because service length, travel, pet needs, and schedule affect fit.",
+    },
+    FaqItem {
+        question: "What details should I include?",
+        answer: "Share your dog's age, temperament, routine, location, desired dates, and any training or care concerns.",
+    },
+];
+
 #[function_component(App)]
 fn app() -> Html {
     match current_route() {
         AppRoute::Admin => html! { <AdminPage /> },
-        AppRoute::Public => html! { <PublicPage /> },
+        AppRoute::Public(route) => html! { <PublicPage route={route} /> },
     }
 }
 
 enum AppRoute {
     Admin,
-    Public,
+    Public(PublicRoute),
+}
+
+#[derive(Clone, Debug, PartialEq)]
+enum PublicRoute {
+    Home,
+    Services,
+    Service(String),
+    Location(String),
+    Contact,
+    NotFound,
 }
 
 fn current_route() -> AppRoute {
@@ -103,12 +226,29 @@ fn current_route() -> AppRoute {
     if path.trim_end_matches('/') == "/admin" {
         AppRoute::Admin
     } else {
-        AppRoute::Public
+        AppRoute::Public(public_route(&path))
+    }
+}
+
+fn public_route(path: &str) -> PublicRoute {
+    let normalized = path.trim_end_matches('/');
+    if normalized.is_empty() || normalized == "/" {
+        PublicRoute::Home
+    } else if normalized == "/services" {
+        PublicRoute::Services
+    } else if normalized == "/contact" {
+        PublicRoute::Contact
+    } else if let Some(slug) = normalized.strip_prefix("/services/") {
+        PublicRoute::Service(slug.to_owned())
+    } else if let Some(slug) = normalized.strip_prefix("/service-area/") {
+        PublicRoute::Location(slug.to_owned())
+    } else {
+        PublicRoute::NotFound
     }
 }
 
 #[function_component(PublicPage)]
-fn public_page() -> Html {
+fn public_page(props: &PublicPageProps) -> Html {
     let content = use_state(|| Some(seed_content()));
     let load_error = use_state(|| None::<String>);
     let form = use_state(InquiryForm::default);
@@ -209,20 +349,39 @@ fn public_page() -> Html {
         };
     };
 
+    set_page_title(&props.route);
+
+    match &props.route {
+        PublicRoute::Service(slug) => {
+            if let Some(service) = find_service(slug) {
+                return service_page(&site, service);
+            }
+        }
+        PublicRoute::Location(slug) => {
+            if let Some(location) = find_location(slug) {
+                return location_page(&site, location);
+            }
+        }
+        PublicRoute::Services => return services_index_page(&site),
+        PublicRoute::Contact => {}
+        PublicRoute::NotFound => return not_found_page(&site),
+        PublicRoute::Home => {}
+    }
+
     html! {
         <>
             <a class="skip-link" href="#contact">{"Skip to contact"}</a>
             <header class="topbar">
-                <a class="brand" href="#top" aria-label="Cooper and Co home">
+                <a class="brand" href="/" aria-label="Cooper and Co home">
                     <span class="brand-mark" aria-hidden="true">{"C&Co"}</span>
                     <span>{site.business.name.clone()}</span>
                 </a>
                 <nav aria-label="Main navigation">
-                    <a href="#services">{"Services"}</a>
-                    <a href="#group-classes">{"Group classes"}</a>
-                    <a href="#service-area">{"Service area"}</a>
+                    <a href="/services">{"Services"}</a>
+                    <a href="/services/dog-training">{"Dog training"}</a>
+                    <a href="/service-area/mansfield-oh">{"Service areas"}</a>
                     <a href="#faq">{"FAQ"}</a>
-                    <a href="#contact">{"Contact"}</a>
+                    <a href="/contact">{"Contact"}</a>
                 </nav>
             </header>
 
@@ -237,7 +396,7 @@ fn public_page() -> Html {
                     <h1 id="home-title">{"Cooper & Co. pet services and dog training support"}</h1>
                     <p>{site.business.intro.clone()}</p>
                     <div class="hero-actions">
-                        <a class="button primary" href="#contact">{"Request information"}</a>
+                        <a class="button primary" href="/contact">{"Request information"}</a>
                         <a class="button secondary" href={format!("tel:{}", site.business.phone.replace([' ', '(', ')', '-'], ""))}>{site.business.phone.clone()}</a>
                     </div>
                 </div>
@@ -262,7 +421,7 @@ fn public_page() -> Html {
                         <article class="card">
                             <h3>{service.title.clone()}</h3>
                             <p>{service.summary.clone()}</p>
-                            <a href={if service.title.contains("Group") { "#group-classes" } else { "#contact" }}>{if service.title.contains("Group") { "View group classes" } else { "Ask about services" }}</a>
+                            <a href="/services">{"Explore service pages"}</a>
                         </article>
                     })}
                 </div>
@@ -298,16 +457,13 @@ fn public_page() -> Html {
             <section id="service-area" class="section" aria-labelledby="area-title">
                 <div class="section-heading">
                     <p class="eyebrow">{"Service area"}</p>
-                    <h2 id="area-title">{"Dog training and pet services near you"}</h2>
-                    <p>{"Cooper & Co. focuses on pet families throughout Lorain County, Ohio."}</p>
+                    <h2 id="area-title">{"Dog services near you"}</h2>
+                    <p>{"These service-area pages support local search around Mansfield, Ontario, Lexington, Bellville, Ashland, and Galion. TODO: owner should confirm active coverage for each city."}</p>
                 </div>
                 <div class="service-grid">
-                    <article id="lorain-county-oh" class="card"><h3><a href="#lorain-county-oh">{"Lorain County, OH"}</a></h3><p>{"Pet services and dog training support across Lorain County."}</p></article>
-                    <article id="elyria-oh" class="card"><h3><a href="#elyria-oh">{"Elyria, OH"}</a></h3><p>{"Dog training Elyria OH and pet service inquiries for Elyria families."}</p></article>
-                    <article id="lorain-oh" class="card"><h3><a href="#lorain-oh">{"Lorain, OH"}</a></h3><p>{"Dog training Lorain OH and local pet support questions."}</p></article>
-                    <article id="amherst-oh" class="card"><h3><a href="#amherst-oh">{"Amherst, OH"}</a></h3><p>{"Pet services and class inquiries near Amherst, Ohio."}</p></article>
-                    <article id="avon-oh" class="card"><h3><a href="#avon-oh">{"Avon, OH"}</a></h3><p>{"Group class and pet support inquiries for Avon pet families."}</p></article>
-                    <article id="north-ridgeville-oh" class="card"><h3><a href="#north-ridgeville-oh">{"North Ridgeville, OH"}</a></h3><p>{"Dog training and pet service inquiries near North Ridgeville."}</p></article>
+                    {for SEO_LOCATIONS.iter().map(|location| html! {
+                        <article id={location.slug} class="card"><h3><a href={format!("/service-area/{}", location.slug)}>{location.name}</a></h3><p>{format!("Dog service inquiry page for {} in {}.", location.name, location.county_hint)}</p></article>
+                    })}
                 </div>
             </section>
 
@@ -452,6 +608,232 @@ fn avif_src(src: &str) -> String {
     src.strip_suffix(".webp")
         .map(|base| format!("{base}.avif"))
         .unwrap_or_else(|| src.to_owned())
+}
+
+fn find_service(slug: &str) -> Option<&'static SeoService> {
+    SEO_SERVICES.iter().find(|service| service.slug == slug)
+}
+
+fn find_location(slug: &str) -> Option<&'static SeoLocation> {
+    SEO_LOCATIONS.iter().find(|location| location.slug == slug)
+}
+
+fn set_page_title(route: &PublicRoute) {
+    let title = match route {
+        PublicRoute::Service(slug) => find_service(slug)
+            .map(|service| format!("{} | Cooper & Co.", service.title))
+            .unwrap_or_else(|| "Cooper & Co. Dog Services".to_owned()),
+        PublicRoute::Location(slug) => find_location(slug)
+            .map(|location| format!("Dog Services in {} | Cooper & Co.", location.name))
+            .unwrap_or_else(|| "Cooper & Co. Dog Services".to_owned()),
+        PublicRoute::Services => {
+            "Dog Walking, Training, Sitting & Puppy Care | Cooper & Co.".to_owned()
+        }
+        PublicRoute::Contact => "Contact Cooper & Co. Dog Services".to_owned(),
+        PublicRoute::NotFound => "Page Not Found | Cooper & Co.".to_owned(),
+        PublicRoute::Home => "Cooper & Co. Dog Services | Mansfield-Area Ohio".to_owned(),
+    };
+
+    if let Some(document) = web_sys::window().and_then(|window| window.document()) {
+        document.set_title(&title);
+    }
+}
+
+fn page_shell(site: &SiteContent, body: Html) -> Html {
+    html! {
+        <>
+            <a class="skip-link" href="#content">{"Skip to content"}</a>
+            <header class="topbar">
+                <a class="brand" href="/" aria-label="Cooper and Co home">
+                    <span class="brand-mark" aria-hidden="true">{"C&Co"}</span>
+                    <span>{site.business.name.clone()}</span>
+                </a>
+                <nav aria-label="Main navigation">
+                    <a href="/services">{"Services"}</a>
+                    <a href="/services/dog-walking">{"Dog walking"}</a>
+                    <a href="/services/dog-training">{"Dog training"}</a>
+                    <a href="/service-area/mansfield-oh">{"Service areas"}</a>
+                    <a href="/contact">{"Contact"}</a>
+                </nav>
+            </header>
+            <main id="content">{body}</main>
+            <footer>
+                <span>{format!("{} · {}", site.business.name, site.business.location)}</span>
+                <a href="/services">{"Services"}</a>
+                <a href="/contact">{"Contact"}</a>
+                <a href={site.business.facebook_url.clone()} target="_blank" rel="noreferrer">{"Facebook"}</a>
+            </footer>
+        </>
+    }
+}
+
+fn services_index_page(site: &SiteContent) -> Html {
+    page_shell(
+        site,
+        html! {
+            <>
+                <section class="section page-hero" aria-labelledby="services-page-title">
+                    <p class="eyebrow">{"Dog services"}</p>
+                    <h1 id="services-page-title">{"Dog walking, training, sitting, puppy care, and adventures"}</h1>
+                    <p>{"Reusable service pages are ready for owner-confirmed descriptions, pricing, photos, and availability. Current copy avoids unverified claims."}</p>
+                    <div class="hero-actions">
+                        <a class="button primary" href="/contact">{"Book now"}</a>
+                        <a class="button secondary on-light" href="tel:+14402761716">{"Call now"}</a>
+                    </div>
+                </section>
+                <section class="section" aria-labelledby="service-list-title">
+                    <div class="section-heading">
+                        <p class="eyebrow">{"Services"}</p>
+                        <h2 id="service-list-title">{"Choose a dog service page"}</h2>
+                    </div>
+                    <div class="service-grid">
+                        {for SEO_SERVICES.iter().map(service_card)}
+                    </div>
+                </section>
+                {faq_section("Service FAQ", SERVICE_FAQS)}
+                {internal_links_section()}
+            </>
+        },
+    )
+}
+
+fn service_page(site: &SiteContent, service: &SeoService) -> Html {
+    page_shell(
+        site,
+        html! {
+            <>
+                <section class="section page-hero" aria-labelledby="service-title">
+                    <p class="eyebrow">{"Dog service"}</p>
+                    <h1 id="service-title">{format!("{} around Mansfield, Ontario, Lexington, Bellville, Ashland, and Galion", service.title)}</h1>
+                    <p>{service.summary}</p>
+                    <p class="todo-note">{"TODO owner input: add confirmed service description, pricing model, visit length, requirements, and current availability."}</p>
+                    <div class="hero-actions">
+                        <a class="button primary" href="/contact">{"Book now"}</a>
+                        <a class="button secondary on-light" href="tel:+14402761716">{"Call now"}</a>
+                    </div>
+                </section>
+                <section class="section" aria-labelledby="service-area-links-title">
+                    <div class="section-heading">
+                        <p class="eyebrow">{"Service areas"}</p>
+                        <h2 id="service-area-links-title">{format!("{} by city", service.title)}</h2>
+                        <p>{"Each city page links back to this service so local pages can grow without duplicated owner facts."}</p>
+                    </div>
+                    <div class="service-grid">
+                        {for SEO_LOCATIONS.iter().map(|location| html! {
+                            <article class="card">
+                                <h3><a href={format!("/service-area/{}", location.slug)}>{format!("{} in {}", service.title, location.name)}</a></h3>
+                                <p>{format!("Local inquiry page for {} in {}. TODO: owner should confirm active coverage and travel limits.", service.name.to_lowercase(), location.name)}</p>
+                            </article>
+                        })}
+                    </div>
+                </section>
+                {faq_section("Service FAQ", SERVICE_FAQS)}
+                {internal_links_section()}
+            </>
+        },
+    )
+}
+
+fn location_page(site: &SiteContent, location: &SeoLocation) -> Html {
+    page_shell(
+        site,
+        html! {
+            <>
+                <section class="section page-hero" aria-labelledby="location-title">
+                    <p class="eyebrow">{"Service area"}</p>
+                    <h1 id="location-title">{format!("Dog services in {}", location.name)}</h1>
+                    <p>{format!("Dog walking, dog training, pet sitting, house sitting, puppy care, and dog adventure inquiry page for {} in {}.", location.name, location.county_hint)}</p>
+                    <p class="todo-note">{"TODO owner input: confirm this city is actively served, add neighborhoods, landmarks, local photos, and any travel fees."}</p>
+                    <div class="hero-actions">
+                        <a class="button primary" href="/contact">{"Contact"}</a>
+                        <a class="button secondary on-light" href="/services">{"View services"}</a>
+                    </div>
+                </section>
+                <section class="section" aria-labelledby="location-services-title">
+                    <div class="section-heading">
+                        <p class="eyebrow">{"Available page templates"}</p>
+                        <h2 id="location-services-title">{format!("Dog service pages for {}", location.name)}</h2>
+                    </div>
+                    <div class="service-grid">
+                        {for SEO_SERVICES.iter().map(service_card)}
+                    </div>
+                </section>
+                {faq_section("Local service FAQ", SERVICE_FAQS)}
+                {internal_links_section()}
+            </>
+        },
+    )
+}
+
+fn not_found_page(site: &SiteContent) -> Html {
+    page_shell(
+        site,
+        html! {
+            <section class="section page-hero" aria-labelledby="not-found-title">
+                <p class="eyebrow">{"Not found"}</p>
+                <h1 id="not-found-title">{"This Cooper & Co. page is not available"}</h1>
+                <p>{"Use the service, service-area, resource, or contact links to continue."}</p>
+                <div class="hero-actions">
+                    <a class="button primary" href="/services">{"View services"}</a>
+                    <a class="button secondary on-light" href="/contact">{"Contact"}</a>
+                </div>
+            </section>
+        },
+    )
+}
+
+fn service_card(service: &SeoService) -> Html {
+    html! {
+        <article class="card">
+            <h3><a href={format!("/services/{}", service.slug)}>{service.name}</a></h3>
+            <p>{service.summary}</p>
+            <a href={format!("/services/{}", service.slug)}>{"Open service page"}</a>
+        </article>
+    }
+}
+
+fn faq_section(title: &str, items: &[FaqItem]) -> Html {
+    html! {
+        <section class="section faq" aria-labelledby="page-faq-title">
+            <div class="section-heading">
+                <p class="eyebrow">{"Questions"}</p>
+                <h2 id="page-faq-title">{title}</h2>
+            </div>
+            {for items.iter().enumerate().map(|(index, item)| html! {
+                <details open={index == 0}>
+                    <summary>{item.question}</summary>
+                    <p>{item.answer}</p>
+                </details>
+            })}
+        </section>
+    }
+}
+
+fn internal_links_section() -> Html {
+    html! {
+        <section class="section link-panel" aria-labelledby="internal-links-title">
+            <div class="section-heading">
+                <p class="eyebrow">{"Explore"}</p>
+                <h2 id="internal-links-title">{"Service, location, resource, and contact links"}</h2>
+            </div>
+            <div class="link-columns">
+                <div>
+                    <h3>{"Services"}</h3>
+                    {for SEO_SERVICES.iter().map(|service| html! { <a href={format!("/services/{}", service.slug)}>{service.name}</a> })}
+                </div>
+                <div>
+                    <h3>{"Locations"}</h3>
+                    {for SEO_LOCATIONS.iter().map(|location| html! { <a href={format!("/service-area/{}", location.slug)}>{location.name}</a> })}
+                </div>
+                <div>
+                    <h3>{"Next steps"}</h3>
+                    <a href="/resources">{"Resources"}</a>
+                    <a href="/contact">{"Contact"}</a>
+                    <a href="tel:+14402761716">{"Call Cooper & Co."}</a>
+                </div>
+            </div>
+        </section>
+    }
 }
 
 fn main() {
