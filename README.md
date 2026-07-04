@@ -91,7 +91,7 @@ Current flow:
 1. The Yew admin page renders a "Sign in with Microsoft" link to `/auth/microsoft/login`.
 2. Rocket handles `/auth/microsoft/login`, generates `state`, `nonce`, a PKCE `code_verifier`, and a `code_challenge`.
 3. Rocket stores the transient OAuth context in an encrypted, HttpOnly, SameSite=Lax private cookie and redirects to `https://login.microsoftonline.com/{tenant}/oauth2/v2.0/authorize`.
-4. Microsoft redirects back to the backend callback route, `/auth/microsoft/callback`.
+4. Microsoft redirects back to `/auth/microsoft/callback`; in local frontend development, Trunk proxies `/auth/*` to Rocket.
 5. Rocket validates `state`, exchanges the code with the saved PKCE verifier, validates the ID token signature and claims, fetches the Microsoft profile, creates the admin session cookie, and redirects back to `/admin`.
 6. The frontend does not infer auth from URL parameters. It calls `/api/admin/me` and relies on the backend session cookie.
 
@@ -100,7 +100,13 @@ Current flow:
 Create or update an app registration in Microsoft Entra ID:
 
 - Platform type: Web
-- Redirect URI for local backend testing:
+- Redirect URI for local frontend development with `trunk serve`:
+
+```text
+http://127.0.0.1:9000/auth/microsoft/callback
+```
+
+- Redirect URI for direct backend testing without Trunk:
 
 ```text
 http://127.0.0.1:9001/auth/microsoft/callback
@@ -132,10 +138,10 @@ Set these environment variables before starting Rocket locally:
 $env:MICROSOFT_CLIENT_ID="..."
 $env:MICROSOFT_CLIENT_SECRET="..." # optional when using PKCE as a public client; recommended for confidential web apps
 $env:MICROSOFT_TENANT_ID="common" # or your tenant ID
-$env:BACKEND_BASE_URL="http://127.0.0.1:9001"
-$env:PUBLIC_APP_URL="http://127.0.0.1:9001"
-$env:MICROSOFT_REDIRECT_URI="http://127.0.0.1:9001/auth/microsoft/callback"
-$env:MICROSOFT_POST_LOGIN_REDIRECT_URI="http://127.0.0.1:9001/admin"
+$env:BACKEND_BASE_URL="http://127.0.0.1:9000"
+$env:PUBLIC_APP_URL="http://127.0.0.1:9000"
+$env:MICROSOFT_REDIRECT_URI="http://127.0.0.1:9000/auth/microsoft/callback"
+$env:MICROSOFT_POST_LOGIN_REDIRECT_URI="http://127.0.0.1:9000/admin"
 $env:ADMIN_ALLOWED_EMAILS="admin@example.com,second-admin@example.com"
 ```
 
@@ -166,7 +172,7 @@ cargo test -p backend
 cargo check
 ```
 
-Then start Rocket on `http://127.0.0.1:9001`, open `http://127.0.0.1:9001/admin`, and click "Sign in with Microsoft". The browser should leave the app for `login.microsoftonline.com`, return to `http://127.0.0.1:9001/auth/microsoft/callback`, and finish back at `http://127.0.0.1:9001/admin`. If it fails, check the Rocket logs for the `oauth event=...` entry that corresponds to the failed step.
+Then start Rocket on `http://127.0.0.1:9001` and Trunk on `http://127.0.0.1:9000`. Open `http://127.0.0.1:9000/admin` and click "Sign in with Microsoft". The browser should leave the app for `login.microsoftonline.com`, return to `http://127.0.0.1:9000/auth/microsoft/callback`, pass through the Trunk `/auth/*` proxy to Rocket, and finish back at `http://127.0.0.1:9000/admin`. If it fails, check the Rocket logs for the `oauth event=...` entry that corresponds to the failed step.
 
 Admin APIs under `/api/admin/*` require either a valid Microsoft admin session cookie or an `Authorization: Bearer <token>` header matching `ADMIN_API_TOKEN`:
 
@@ -198,7 +204,7 @@ When you have SurrealDB set up, provide these env vars before starting Rocket:
 trunk serve --config frontend/Trunk.toml
 ```
 
-Frontend is available at `http://127.0.0.1:9000` and proxies `/api/*` to the backend on `http://127.0.0.1:9001`.
+Frontend is available at `http://127.0.0.1:9000` and proxies `/api/*` and `/auth/*` to the backend on `http://127.0.0.1:9001`.
 
 ## Extend Next
 
