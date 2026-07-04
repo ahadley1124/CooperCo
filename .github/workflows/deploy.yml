@@ -1,4 +1,4 @@
-name: Deploy CooperCo
+name: Build CooperCo
 
 on:
   push:
@@ -6,12 +6,9 @@ on:
       - main
 
 jobs:
-  build-and-stage:
-    name: Build and stage app
+  build:
+    name: Build and test app
     runs-on: self-hosted
-
-    env:
-      DEPLOY_DIR: /github-runner/cooperco
 
     steps:
       - name: Checkout repository
@@ -28,17 +25,14 @@ jobs:
       - name: Install Trunk
         uses: taiki-e/install-action@trunk
 
+      - name: Run cargo checks
+        run: cargo check
+
+      - name: Run cargo tests
+        run: cargo test
+
       - name: Build frontend
         run: trunk build --release --config frontend/Trunk.toml
 
       - name: Build backend
         run: cargo build --release -p backend
-
-      - name: Stage build outputs
-        shell: bash
-        run: |
-          mkdir -p "$DEPLOY_DIR/frontend" "$DEPLOY_DIR/backend"
-          rm -rf "$DEPLOY_DIR/frontend"/*
-          cp -R frontend/dist/. "$DEPLOY_DIR/frontend/"
-          cp target/release/backend "$DEPLOY_DIR/backend/backend"
-          chmod +x "$DEPLOY_DIR/backend/backend"
