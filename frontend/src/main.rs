@@ -108,6 +108,15 @@ struct FaqItem {
     answer: &'static str,
 }
 
+#[derive(Clone, Copy)]
+struct ResourcePost {
+    slug: &'static str,
+    title: &'static str,
+    summary: &'static str,
+    category: &'static str,
+    sections: &'static [&'static str],
+}
+
 const SEO_SERVICES: &[SeoService] = &[
     SeoService {
         slug: "dog-walking",
@@ -195,6 +204,45 @@ const SERVICE_FAQS: &[FaqItem] = &[
     },
 ];
 
+const RESOURCE_POSTS: &[ResourcePost] = &[
+    ResourcePost {
+        slug: "local-dog-walking-checklist",
+        title: "Local Dog Walking Checklist",
+        summary: "A starter checklist for sharing dog walking routines, leash notes, route preferences, and safety needs.",
+        category: "Dog walking",
+        sections: &[
+            "Current walk schedule and preferred times",
+            "Leash, harness, reactivity, and weather notes",
+            "Neighborhood, parking, and access details",
+            "TODO owner input: add Cooper & Co. walking policies and service radius",
+        ],
+    },
+    ResourcePost {
+        slug: "puppy-care-first-week",
+        title: "Puppy Care First Week Notes",
+        summary: "A local puppy-care planning article template for potty breaks, crate routines, feeding, and early manners.",
+        category: "Puppy care",
+        sections: &[
+            "Potty-break cadence and accident cleanup preferences",
+            "Feeding, water, nap, and crate routine",
+            "Early socialization and handling notes",
+            "TODO owner input: add age requirements and puppy-care availability",
+        ],
+    },
+    ResourcePost {
+        slug: "dog-adventure-safety",
+        title: "Dog Adventure Safety Questions",
+        summary: "A dog adventure fit checklist for enrichment outings, transport notes, weather, temperament, and recall needs.",
+        category: "Dog adventures",
+        sections: &[
+            "Temperament, leash skills, and outing comfort",
+            "Transportation, emergency contact, and vet details",
+            "Weather, hydration, tick prevention, and terrain notes",
+            "TODO owner input: add adventure locations and safety policies",
+        ],
+    },
+];
+
 #[function_component(App)]
 fn app() -> Html {
     match current_route() {
@@ -214,6 +262,8 @@ enum PublicRoute {
     Services,
     Service(String),
     Location(String),
+    Resources,
+    Resource(String),
     Contact,
     NotFound,
 }
@@ -236,12 +286,16 @@ fn public_route(path: &str) -> PublicRoute {
         PublicRoute::Home
     } else if normalized == "/services" {
         PublicRoute::Services
+    } else if normalized == "/resources" {
+        PublicRoute::Resources
     } else if normalized == "/contact" {
         PublicRoute::Contact
     } else if let Some(slug) = normalized.strip_prefix("/services/") {
         PublicRoute::Service(slug.to_owned())
     } else if let Some(slug) = normalized.strip_prefix("/service-area/") {
         PublicRoute::Location(slug.to_owned())
+    } else if let Some(slug) = normalized.strip_prefix("/resources/") {
+        PublicRoute::Resource(slug.to_owned())
     } else {
         PublicRoute::NotFound
     }
@@ -363,6 +417,12 @@ fn public_page(props: &PublicPageProps) -> Html {
             }
         }
         PublicRoute::Services => return services_index_page(&site),
+        PublicRoute::Resources => return resources_index_page(&site),
+        PublicRoute::Resource(slug) => {
+            if let Some(post) = find_resource(slug) {
+                return resource_page(&site, post);
+            }
+        }
         PublicRoute::Contact => {}
         PublicRoute::NotFound => return not_found_page(&site),
         PublicRoute::Home => {}
@@ -380,6 +440,7 @@ fn public_page(props: &PublicPageProps) -> Html {
                     <a href="/services">{"Services"}</a>
                     <a href="/services/dog-training">{"Dog training"}</a>
                     <a href="/service-area/mansfield-oh">{"Service areas"}</a>
+                    <a href="/resources">{"Resources"}</a>
                     <a href="#faq">{"FAQ"}</a>
                     <a href="/contact">{"Contact"}</a>
                 </nav>
@@ -618,6 +679,10 @@ fn find_location(slug: &str) -> Option<&'static SeoLocation> {
     SEO_LOCATIONS.iter().find(|location| location.slug == slug)
 }
 
+fn find_resource(slug: &str) -> Option<&'static ResourcePost> {
+    RESOURCE_POSTS.iter().find(|post| post.slug == slug)
+}
+
 fn set_page_title(route: &PublicRoute) {
     let title = match route {
         PublicRoute::Service(slug) => find_service(slug)
@@ -629,6 +694,10 @@ fn set_page_title(route: &PublicRoute) {
         PublicRoute::Services => {
             "Dog Walking, Training, Sitting & Puppy Care | Cooper & Co.".to_owned()
         }
+        PublicRoute::Resources => "Dog Care Resources | Cooper & Co.".to_owned(),
+        PublicRoute::Resource(slug) => find_resource(slug)
+            .map(|post| format!("{} | Cooper & Co.", post.title))
+            .unwrap_or_else(|| "Dog Care Resources | Cooper & Co.".to_owned()),
         PublicRoute::Contact => "Contact Cooper & Co. Dog Services".to_owned(),
         PublicRoute::NotFound => "Page Not Found | Cooper & Co.".to_owned(),
         PublicRoute::Home => "Cooper & Co. Dog Services | Mansfield-Area Ohio".to_owned(),
@@ -653,6 +722,7 @@ fn page_shell(site: &SiteContent, body: Html) -> Html {
                     <a href="/services/dog-walking">{"Dog walking"}</a>
                     <a href="/services/dog-training">{"Dog training"}</a>
                     <a href="/service-area/mansfield-oh">{"Service areas"}</a>
+                    <a href="/resources">{"Resources"}</a>
                     <a href="/contact">{"Contact"}</a>
                 </nav>
             </header>
@@ -765,6 +835,63 @@ fn location_page(site: &SiteContent, location: &SeoLocation) -> Html {
     )
 }
 
+fn resources_index_page(site: &SiteContent) -> Html {
+    page_shell(
+        site,
+        html! {
+            <>
+                <section class="section page-hero" aria-labelledby="resources-title">
+                    <p class="eyebrow">{"Resources"}</p>
+                    <h1 id="resources-title">{"Local dog care resource templates"}</h1>
+                    <p>{"Starter articles are structured for local search and internal linking. TODO: owner should add first-hand guidance, policies, photos, and current service examples before publishing as final advice."}</p>
+                    <div class="hero-actions">
+                        <a class="button primary" href="/contact">{"Ask a question"}</a>
+                        <a class="button secondary on-light" href="/services">{"View services"}</a>
+                    </div>
+                </section>
+                <section class="section" aria-labelledby="resource-list-title">
+                    <div class="section-heading">
+                        <p class="eyebrow">{"Articles"}</p>
+                        <h2 id="resource-list-title">{"Dog care topics"}</h2>
+                    </div>
+                    <div class="service-grid">
+                        {for RESOURCE_POSTS.iter().map(resource_card)}
+                    </div>
+                </section>
+                {internal_links_section()}
+            </>
+        },
+    )
+}
+
+fn resource_page(site: &SiteContent, post: &ResourcePost) -> Html {
+    page_shell(
+        site,
+        html! {
+            <>
+                <article class="section page-hero resource-article" aria-labelledby="resource-title">
+                    <p class="eyebrow">{post.category}</p>
+                    <h1 id="resource-title">{post.title}</h1>
+                    <p>{post.summary}</p>
+                    <div class="article-body">
+                        <h2>{"Planning notes"}</h2>
+                        <ul>
+                            {for post.sections.iter().map(|section| html! { <li>{*section}</li> })}
+                        </ul>
+                        <h2>{"Local service context"}</h2>
+                        <p>{"This page links dog-care education to Cooper & Co. service and service-area pages for Mansfield, Ontario, Lexington, Bellville, Ashland, and Galion. TODO: owner should add location-specific examples only after confirming them."}</p>
+                    </div>
+                    <div class="hero-actions">
+                        <a class="button primary" href="/contact">{"Contact"}</a>
+                        <a class="button secondary on-light" href="/resources">{"All resources"}</a>
+                    </div>
+                </article>
+                {internal_links_section()}
+            </>
+        },
+    )
+}
+
 fn not_found_page(site: &SiteContent) -> Html {
     page_shell(
         site,
@@ -788,6 +915,17 @@ fn service_card(service: &SeoService) -> Html {
             <h3><a href={format!("/services/{}", service.slug)}>{service.name}</a></h3>
             <p>{service.summary}</p>
             <a href={format!("/services/{}", service.slug)}>{"Open service page"}</a>
+        </article>
+    }
+}
+
+fn resource_card(post: &ResourcePost) -> Html {
+    html! {
+        <article class="card">
+            <span class="card-label">{post.category}</span>
+            <h3><a href={format!("/resources/{}", post.slug)}>{post.title}</a></h3>
+            <p>{post.summary}</p>
+            <a href={format!("/resources/{}", post.slug)}>{"Read resource"}</a>
         </article>
     }
 }
@@ -828,6 +966,7 @@ fn internal_links_section() -> Html {
                 <div>
                     <h3>{"Next steps"}</h3>
                     <a href="/resources">{"Resources"}</a>
+                    {for RESOURCE_POSTS.iter().map(|post| html! { <a href={format!("/resources/{}", post.slug)}>{post.title}</a> })}
                     <a href="/contact">{"Contact"}</a>
                     <a href="tel:+14402761716">{"Call Cooper & Co."}</a>
                 </div>
