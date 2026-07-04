@@ -221,6 +221,7 @@ fn public_page() -> Html {
                     <a href="#services">{"Services"}</a>
                     <a href="#group-classes">{"Group classes"}</a>
                     <a href="#service-area">{"Service area"}</a>
+                    <a href="#faq">{"FAQ"}</a>
                     <a href="#contact">{"Contact"}</a>
                 </nav>
             </header>
