@@ -1,3 +1,4 @@
 [default]
 address = "127.0.0.1"
 port = 9001
+secret_key = "o+pwR0JIYMMkYEiVyFpkCDH9HgTNOTWRVvIOdIGffew="
