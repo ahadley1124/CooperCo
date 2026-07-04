@@ -8,8 +8,6 @@ port = 9000
 [[proxy]]
 backend = "http://127.0.0.1:9001/api/"
 
-<<<<<<< Updated upstream
 [[proxy]]
 backend = "http://127.0.0.1:9001/auth/"
-=======
->>>>>>> Stashed changes
+
