@@ -89,6 +89,76 @@ cargo run
 
 Open `http://127.0.0.1:9001`.
 
+Rocket serves the full application in this mode. It serves compiled frontend files from `frontend/dist` when run from the workspace root, or `../frontend/dist` when run from `backend/`. Set `COOPERCO_STATIC_DIR` if the build output is deployed somewhere else.
+
+## Production Build And Run
+
+Production does not require Trunk to be running. Cloudflare Tunnel should point directly at Rocket on port `9001`.
+
+Build everything:
+
+```powershell
+trunk build --release --config frontend/Trunk.toml
+cargo build -p backend --release
+```
+
+Or use the Makefile:
+
+```powershell
+make build-production
+```
+
+Run with the Makefile:
+
+```powershell
+make run-production
+```
+
+Run Rocket serving the compiled frontend and backend routes:
+
+```powershell
+.\target\release\backend.exe
+```
+
+On Linux:
+
+```sh
+./target/release/backend
+```
+
+Rocket route behavior in production:
+
+- `/` returns the compiled frontend `index.html`.
+- Static frontend assets are served by Rocket with normal file MIME types.
+- Frontend SPA routes such as `/admin` fall back to `index.html`.
+- `/api/*` and `/auth/*` are handled by Rocket backend routes and do not fall back to the frontend.
+
+Cloudflare Tunnel ingress example:
+
+```yaml
+ingress:
+  - hostname: beta.cooper-and-co.com
+    service: http://127.0.0.1:9001
+  - service: http_status:404
+```
+
+Production `.env` values for `backend/.env`:
+
+```dotenv
+ROCKET_ADDRESS=127.0.0.1
+ROCKET_PORT=9001
+PUBLIC_APP_URL=https://beta.cooper-and-co.com
+BACKEND_BASE_URL=https://beta.cooper-and-co.com
+MICROSOFT_REDIRECT_URI=https://beta.cooper-and-co.com/auth/microsoft/callback
+MICROSOFT_POST_LOGIN_REDIRECT_URI=https://beta.cooper-and-co.com/admin
+BEHIND_PROXY=true
+COOKIE_SECURE=true
+COOKIE_DOMAIN=beta.cooper-and-co.com
+ROCKET_SECRET_KEY=replace-with-a-stable-production-secret
+```
+
+Generate `ROCKET_SECRET_KEY` with a secure random 32-byte base64 value. Keep it stable across restarts so Rocket private cookies remain decryptable.
+
 ## Admin Login
 
 The admin area is available at `/admin` and uses Microsoft Entra OAuth 2.0 Authorization Code flow with PKCE.
@@ -98,7 +168,7 @@ Current flow:
 1. The Yew admin page renders a "Sign in with Microsoft" link to `/auth/microsoft/login`.
 2. Rocket handles `/auth/microsoft/login`, generates `state`, `nonce`, a PKCE `code_verifier`, and a `code_challenge`.
 3. Rocket stores the transient OAuth context in an encrypted, HttpOnly, SameSite=Lax private cookie and redirects to `https://login.microsoftonline.com/{tenant}/oauth2/v2.0/authorize`.
-4. Microsoft redirects back to `/auth/microsoft/callback`; in local frontend development, Trunk proxies `/auth/*` to Rocket.
+4. Microsoft redirects back to `/auth/microsoft/callback`; Rocket handles this directly in production, and Trunk proxies `/auth/*` to Rocket only during local frontend development.
 5. Rocket validates `state`, exchanges the code with the saved PKCE verifier, validates the ID token signature and claims, fetches the Microsoft profile, creates the admin session cookie, and redirects back to `/admin`.
 6. The frontend does not infer auth from URL parameters. It calls `/api/admin/me` and relies on the backend session cookie.
 
@@ -119,10 +189,10 @@ http://127.0.0.1:9000/auth/microsoft/callback
 http://127.0.0.1:9001/auth/microsoft/callback
 ```
 
-- Redirect URI for production: use the public backend URL that reaches Rocket, for example:
+- Redirect URI for production with Cloudflare Tunnel pointed at Rocket:
 
 ```text
-https://api.example.com/auth/microsoft/callback
+https://beta.cooper-and-co.com/auth/microsoft/callback
 ```
 
 If the same public host serves both the frontend and backend, the production redirect can be:
@@ -131,7 +201,7 @@ If the same public host serves both the frontend and backend, the production red
 https://www.example.com/auth/microsoft/callback
 ```
 
-The redirect URI must match `MICROSOFT_REDIRECT_URI` exactly, including scheme, host, port, and path. Do not register the Trunk dev server or a static frontend host for the callback unless that host proxies `/auth/microsoft/callback` to Rocket.
+The redirect URI must match `MICROSOFT_REDIRECT_URI` exactly, including scheme, host, port, and path. In production, do not register the Trunk dev server; the tunnel should route `/auth/microsoft/callback` directly to Rocket.
 
 Required delegated Microsoft Graph scopes:
 
@@ -165,7 +235,7 @@ For production behind a reverse proxy:
 - `MICROSOFT_REDIRECT_URI` must be the public HTTPS callback URL, not the internal Rocket listener URL.
 - `PUBLIC_APP_URL` must be the public frontend/app URL used after login.
 - `BACKEND_BASE_URL` should be the public backend URL used to construct defaults.
-- The proxy must route `/auth/*` and `/api/*` to Rocket before any SPA fallback. Otherwise the Yew/static frontend can swallow `/auth/microsoft/callback`.
+- Cloudflare Tunnel should route the full hostname to Rocket on `http://127.0.0.1:9001`; no Trunk proxy is needed in production.
 - Forward the original host and scheme with headers such as `X-Forwarded-Host` and `X-Forwarded-Proto` according to your proxy/Rocket deployment setup.
 
 OAuth failures are returned as visible HTTP errors and logged with `oauth event=...` records. Logs include state/nonce/PKCE fingerprints and redirect targets, but do not log client secrets, auth codes, tokens, refresh tokens, or raw cookies.
@@ -180,6 +250,20 @@ cargo check
 ```
 
 Then start Rocket on `http://127.0.0.1:9001` and Trunk on `http://127.0.0.1:9000`. Open `http://127.0.0.1:9000/admin` and click "Sign in with Microsoft". The browser should leave the app for `login.microsoftonline.com`, return to `http://127.0.0.1:9000/auth/microsoft/callback`, pass through the Trunk `/auth/*` proxy to Rocket, and finish back at `http://127.0.0.1:9000/admin`. If it fails, check the Rocket logs for the `oauth event=...` entry that corresponds to the failed step.
+
+Production manual checks after `trunk build --release --config frontend/Trunk.toml` and starting Rocket on `9001`:
+
+```sh
+curl -vk http://127.0.0.1:9001/
+curl -vk http://127.0.0.1:9001/auth/microsoft/login
+curl -vk https://beta.cooper-and-co.com/auth/microsoft/login
+```
+
+Expected results:
+
+- `http://127.0.0.1:9001/` returns the frontend HTML.
+- Both `/auth/microsoft/login` requests return a redirect to `login.microsoftonline.com`.
+- The Microsoft authorization URL contains `redirect_uri=https%3A%2F%2Fbeta.cooper-and-co.com%2Fauth%2Fmicrosoft%2Fcallback`.
 
 Admin APIs under `/api/admin/*` require either a valid Microsoft admin session cookie or an `Authorization: Bearer <token>` header matching `ADMIN_API_TOKEN`:
 
@@ -211,7 +295,7 @@ When you have SurrealDB set up, provide the SurrealDB values in `backend/.env` b
 trunk serve --config frontend/Trunk.toml
 ```
 
-Frontend is available at `http://127.0.0.1:9000` and proxies `/api/*` and `/auth/*` to the backend on `http://127.0.0.1:9001`.
+For development, Trunk is available at `http://127.0.0.1:9000` and proxies `/api/*` and `/auth/*` to the backend on `http://127.0.0.1:9001`. This proxy is dev-only; production should run only Rocket on `9001`.
 
 ## Extend Next
 
