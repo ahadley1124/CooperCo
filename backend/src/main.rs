@@ -265,18 +265,7 @@ fn robots() -> RawText<String> {
 #[get("/sitemap.xml")]
 fn sitemap_xml() -> RawXml<String> {
     let site_urls = public_site_urls();
-    let paths = [
-        "/",
-        "/services",
-        "/group-classes",
-        "/contact",
-        "/service-area/lorain-county-oh",
-        "/service-area/elyria-oh",
-        "/service-area/lorain-oh",
-        "/service-area/amherst-oh",
-        "/service-area/avon-oh",
-        "/service-area/north-ridgeville-oh",
-    ];
+    let paths = seo_paths();
 
     let urls = site_urls
         .iter()
@@ -284,8 +273,8 @@ fn sitemap_xml() -> RawXml<String> {
         .flat_map(|(site_index, site_url)| {
             paths.iter().map(move |path| {
                 let priority = if site_index == 0 {
-                    if *path == "/" { "1.0" } else { "0.8" }
-                } else if *path == "/" {
+                    if path.as_str() == "/" { "1.0" } else { "0.8" }
+                } else if path.as_str() == "/" {
                     "0.6"
                 } else {
                     "0.5"
@@ -705,7 +694,7 @@ fn load_dotenv_paths(paths: &[PathBuf]) -> bool {
 
     for path in paths {
         if path.is_file() {
-            match dotenvy::from_path_override(&path) {
+            match dotenvy::from_path_override(path) {
                 Ok(_) => {
                     eprintln!("Loaded backend environment from {}", path.display());
                     loaded = true;
@@ -1253,6 +1242,33 @@ fn public_site_urls() -> Vec<String> {
         .map(|url| url.trim().trim_end_matches('/').to_owned())
         .filter(|url| !url.is_empty())
         .collect()
+}
+
+fn seo_paths() -> Vec<String> {
+    [
+        "/",
+        "/services",
+        "/services/dog-walking",
+        "/services/dog-training",
+        "/services/pet-sitting",
+        "/services/house-sitting",
+        "/services/puppy-care",
+        "/services/dog-adventures",
+        "/service-area/mansfield-oh",
+        "/service-area/ontario-oh",
+        "/service-area/lexington-oh",
+        "/service-area/bellville-oh",
+        "/service-area/ashland-oh",
+        "/service-area/galion-oh",
+        "/resources",
+        "/resources/local-dog-walking-checklist",
+        "/resources/puppy-care-first-week",
+        "/resources/dog-adventure-safety",
+        "/contact",
+    ]
+    .into_iter()
+    .map(str::to_owned)
+    .collect()
 }
 
 fn noindex_enabled() -> bool {
@@ -1833,5 +1849,21 @@ mod tests {
             Some("http://127.0.0.1:9001/admin")
         );
         env::remove_var("PUBLIC_APP_URL");
+    }
+
+    #[test]
+    fn sitemap_includes_service_location_and_resource_pages() {
+        let _guard = ENV_LOCK.lock().unwrap_or_else(|error| error.into_inner());
+        env::set_var("PUBLIC_SITE_URLS", "https://example.com");
+
+        let sitemap = sitemap_xml().0;
+
+        assert!(sitemap.contains("https://example.com/services/dog-walking"));
+        assert!(sitemap.contains("https://example.com/services/dog-training"));
+        assert!(sitemap.contains("https://example.com/service-area/mansfield-oh"));
+        assert!(sitemap.contains("https://example.com/service-area/ashland-oh"));
+        assert!(sitemap.contains("https://example.com/resources/puppy-care-first-week"));
+
+        env::remove_var("PUBLIC_SITE_URLS");
     }
 }
