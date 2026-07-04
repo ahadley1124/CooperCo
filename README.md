@@ -287,6 +287,40 @@ $env:COOPERCO_NOINDEX="true"
 
 The frontend build also copies static fallback files from `frontend/public/robots.txt` and `frontend/public/sitemap.xml` for deployments that serve `frontend/dist` directly.
 
+### Local SEO page foundation
+
+The current SEO foundation includes route templates for:
+
+- Services: dog walking, dog training, pet sitting, house sitting, puppy care, and dog adventures.
+- Service areas: Mansfield, Ontario, Lexington, Bellville, Ashland, and Galion, Ohio.
+- Resources: local dog walking checklist, puppy care first-week notes, and dog adventure safety questions.
+
+These pages intentionally use TODO placeholders where owner confirmation is required. Before final publishing, confirm exact service availability, active city coverage, service radius, pricing model, credentials, insurance or bonding, testimonials, and local photos.
+
+### Search Console and analytics hooks
+
+Set these before `trunk build` to embed verification/measurement IDs into the frontend at compile time:
+
+```powershell
+$env:COOPERCO_SEARCH_CONSOLE_VERIFICATION="google-site-verification-token"
+$env:COOPERCO_ANALYTICS_ID="analytics-or-tag-manager-id"
+trunk build --release --config frontend/Trunk.toml
+```
+
+The frontend writes these as metadata only when values are present, so local and staging builds can omit them.
+
+### SEO validation commands
+
+Run these before SEO releases:
+
+```powershell
+cargo fmt
+cargo check
+cargo test
+cargo clippy --all-targets --all-features -- -D warnings
+trunk build --config frontend/Trunk.toml
+```
+
 ## SurrealDB Configuration
 
 When you have SurrealDB set up, provide the SurrealDB values in `backend/.env` before starting Rocket.

@@ -705,7 +705,42 @@ fn set_page_title(route: &PublicRoute) {
 
     if let Some(document) = web_sys::window().and_then(|window| window.document()) {
         document.set_title(&title);
+        apply_configured_head_hooks(&document);
     }
+}
+
+fn apply_configured_head_hooks(document: &web_sys::Document) {
+    upsert_meta(
+        document,
+        "google-site-verification",
+        option_env!("COOPERCO_SEARCH_CONSOLE_VERIFICATION"),
+    );
+    upsert_meta(
+        document,
+        "cooperco-analytics-id",
+        option_env!("COOPERCO_ANALYTICS_ID"),
+    );
+}
+
+fn upsert_meta(document: &web_sys::Document, name: &str, content: Option<&str>) {
+    let Some(content) = content.filter(|value| !value.trim().is_empty()) else {
+        return;
+    };
+    let selector = format!("meta[name=\"{name}\"]");
+    let element = match document.query_selector(&selector).ok().flatten() {
+        Some(element) => element,
+        None => {
+            let Ok(element) = document.create_element("meta") else {
+                return;
+            };
+            let _ = element.set_attribute("name", name);
+            if let Some(head) = document.head() {
+                let _ = head.append_child(&element);
+            }
+            element
+        }
+    };
+    let _ = element.set_attribute("content", content);
 }
 
 fn page_shell(site: &SiteContent, body: Html) -> Html {
@@ -760,6 +795,8 @@ fn services_index_page(site: &SiteContent) -> Html {
                         {for SEO_SERVICES.iter().map(service_card)}
                     </div>
                 </section>
+                {trust_section()}
+                {conversion_section("Ready to ask about dog services?")}
                 {faq_section("Service FAQ", SERVICE_FAQS)}
                 {internal_links_section()}
             </>
@@ -797,6 +834,8 @@ fn service_page(site: &SiteContent, service: &SeoService) -> Html {
                         })}
                     </div>
                 </section>
+                {trust_section()}
+                {conversion_section("Ask about this service")}
                 {faq_section("Service FAQ", SERVICE_FAQS)}
                 {internal_links_section()}
             </>
@@ -828,6 +867,8 @@ fn location_page(site: &SiteContent, location: &SeoLocation) -> Html {
                         {for SEO_SERVICES.iter().map(service_card)}
                     </div>
                 </section>
+                {trust_section()}
+                {conversion_section("Check local service fit")}
                 {faq_section("Local service FAQ", SERVICE_FAQS)}
                 {internal_links_section()}
             </>
@@ -858,6 +899,7 @@ fn resources_index_page(site: &SiteContent) -> Html {
                         {for RESOURCE_POSTS.iter().map(resource_card)}
                     </div>
                 </section>
+                {conversion_section("Have a local dog care question?")}
                 {internal_links_section()}
             </>
         },
@@ -886,6 +928,7 @@ fn resource_page(site: &SiteContent, post: &ResourcePost) -> Html {
                         <a class="button secondary on-light" href="/resources">{"All resources"}</a>
                     </div>
                 </article>
+                {conversion_section("Ask Cooper & Co. about this topic")}
                 {internal_links_section()}
             </>
         },
@@ -927,6 +970,35 @@ fn resource_card(post: &ResourcePost) -> Html {
             <p>{post.summary}</p>
             <a href={format!("/resources/{}", post.slug)}>{"Read resource"}</a>
         </article>
+    }
+}
+
+fn trust_section() -> Html {
+    html! {
+        <section class="section trust-section" aria-labelledby="trust-title">
+            <div class="section-heading">
+                <p class="eyebrow">{"Trust"}</p>
+                <h2 id="trust-title">{"Owner-confirmed details still belong in config"}</h2>
+                <p>{"The site is structured to support local ranking without overstating service facts. TODO: owner should confirm service availability, city coverage, credentials, insurance or bonding, pricing, testimonials, and current policies before replacing placeholders."}</p>
+            </div>
+        </section>
+    }
+}
+
+fn conversion_section(title: &str) -> Html {
+    html! {
+        <section class="section cta-band" aria-labelledby="cta-title">
+            <div>
+                <p class="eyebrow">{"Next step"}</p>
+                <h2 id="cta-title">{title}</h2>
+                <p>{"Share your city, dates, pet details, and service goals so Cooper & Co. can confirm whether there is a fit."}</p>
+            </div>
+            <div class="cta-actions">
+                <a class="button primary" href="/contact">{"Book now"}</a>
+                <a class="button secondary on-light" href="tel:+14402761716">{"Call now"}</a>
+                <a class="button secondary on-light" href="mailto:cooper.copetservices@gmail.com">{"Email"}</a>
+            </div>
+        </section>
     }
 }
 

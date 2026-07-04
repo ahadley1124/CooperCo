@@ -494,6 +494,31 @@ button:disabled {
   background: #e6ece6;
 }
 
+.trust-section {
+  background: #fff;
+}
+
+.cta-band {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 22px;
+  align-items: center;
+  background: #17201b;
+  color: #fff;
+}
+
+.cta-band p {
+  max-width: 720px;
+  color: rgba(255, 255, 255, 0.82);
+}
+
+.cta-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
 .link-columns {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -717,8 +742,13 @@ footer {
   .service-grid,
   .split,
   .contact,
+  .cta-band,
   .link-columns {
     grid-template-columns: 1fr;
+  }
+
+  .cta-actions {
+    justify-content: flex-start;
   }
 
   .stat {
