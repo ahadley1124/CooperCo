@@ -23,7 +23,7 @@ use rocket::{
     routes,
     serde::json::Json,
     time::Duration,
-    Request, State,
+    Build, Request, Rocket, State,
 };
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -628,9 +628,19 @@ async fn delete_inquiry(
     }
 }
 
+#[get("/api/<_..>", rank = 15)]
+fn api_not_found() -> Status {
+    Status::NotFound
+}
+
+#[get("/auth/<_..>", rank = 15)]
+fn auth_not_found() -> Status {
+    Status::NotFound
+}
+
 #[get("/<_..>", rank = 20)]
 async fn spa_fallback() -> Option<NamedFile> {
-    NamedFile::open(static_dir().join("index.html")).await.ok()
+    frontend_index().await
 }
 
 #[rocket::main]
@@ -638,6 +648,15 @@ async fn main() -> anyhow::Result<()> {
     load_dotenv_files();
     let store = connect_store().await;
 
+    build_rocket(store)
+        .launch()
+        .await
+        .context("rocket failed")?;
+
+    Ok(())
+}
+
+fn build_rocket(store: Store) -> Rocket<Build> {
     rocket::build()
         .manage(store)
         .mount(
@@ -656,15 +675,16 @@ async fn main() -> anyhow::Result<()> {
                 update_inquiry_status,
                 delete_inquiry,
                 create_inquiry,
+                api_not_found,
+                auth_not_found,
                 spa_fallback
             ],
         )
         .mount("/", FileServer::from(static_dir()).rank(10))
-        .launch()
-        .await
-        .context("rocket failed")?;
+}
 
-    Ok(())
+async fn frontend_index() -> Option<NamedFile> {
+    NamedFile::open(static_dir().join("index.html")).await.ok()
 }
 
 fn load_dotenv_files() {
@@ -1455,6 +1475,73 @@ mod tests {
             rocket::build().mount("/", routes![microsoft_login, microsoft_callback, logout]),
         )
         .expect("valid rocket")
+    }
+
+    fn full_app_test_client(static_dir: &std::path::Path) -> Client {
+        env::set_var("COOPERCO_STATIC_DIR", static_dir);
+        Client::tracked(build_rocket(Store::Memory(Arc::new(RwLock::new(
+            Vec::new(),
+        )))))
+        .expect("valid rocket")
+    }
+
+    #[test]
+    fn rocket_serves_frontend_index_and_assets_without_trunk() {
+        let _guard = ENV_LOCK.lock().unwrap_or_else(|error| error.into_inner());
+        let dir = env::temp_dir().join(format!("cooperco-static-test-{}", Uuid::new_v4()));
+        fs::create_dir_all(dir.join("assets")).unwrap();
+        fs::write(
+            dir.join("index.html"),
+            "<!doctype html><html><body>Cooper frontend</body></html>",
+        )
+        .unwrap();
+        fs::write(dir.join("assets").join("app.css"), "body { color: black; }").unwrap();
+
+        let client = full_app_test_client(&dir);
+        let index = client.get("/").dispatch();
+        assert_eq!(index.status(), Status::Ok);
+        assert!(index.into_string().unwrap().contains("Cooper frontend"));
+
+        let fallback = client.get("/admin").dispatch();
+        assert_eq!(fallback.status(), Status::Ok);
+        assert!(fallback.into_string().unwrap().contains("Cooper frontend"));
+
+        let asset = client.get("/assets/app.css").dispatch();
+        assert_eq!(asset.status(), Status::Ok);
+        assert_eq!(
+            asset.headers().get_one("Content-Type"),
+            Some("text/css; charset=utf-8")
+        );
+        assert!(asset.into_string().unwrap().contains("color: black"));
+
+        env::remove_var("COOPERCO_STATIC_DIR");
+        fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn rocket_does_not_spa_fallback_unknown_api_or_auth_routes() {
+        let _guard = ENV_LOCK.lock().unwrap_or_else(|error| error.into_inner());
+        let dir = env::temp_dir().join(format!("cooperco-route-test-{}", Uuid::new_v4()));
+        fs::create_dir_all(&dir).unwrap();
+        fs::write(dir.join("index.html"), "<html>frontend</html>").unwrap();
+
+        let client = full_app_test_client(&dir);
+
+        assert_eq!(
+            client.get("/api/missing").dispatch().status(),
+            Status::NotFound
+        );
+        assert_eq!(
+            client.get("/auth/missing").dispatch().status(),
+            Status::NotFound
+        );
+        assert_eq!(
+            client.get("/not-a-backend-route").dispatch().status(),
+            Status::Ok
+        );
+
+        env::remove_var("COOPERCO_STATIC_DIR");
+        fs::remove_dir_all(dir).unwrap();
     }
 
     #[test]
