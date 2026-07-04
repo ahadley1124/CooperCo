@@ -228,7 +228,10 @@ fn public_page() -> Html {
 
             <main>
             <section id="top" class="hero" aria-labelledby="home-title">
-                <img class="hero-image" src={site.business.hero_image.clone()} alt="Cooper & Co. pet services logo from the public Facebook page" width="1600" height="900" fetchpriority="high" />
+                <picture class="hero-media">
+                    <source srcset={avif_src(&site.business.hero_image)} type="image/avif" />
+                    <img class="hero-image" src={site.business.hero_image.clone()} alt="Cooper & Co. pet services logo from the public Facebook page" width="1600" height="900" sizes="100vw" fetchpriority="high" decoding="async" />
+                </picture>
                 <div class="hero-copy">
                     <p class="eyebrow">{format!("{} in {}", site.business.category, site.business.location)}</p>
                     <h1 id="home-title">{"Cooper & Co. pet services and dog training support"}</h1>
@@ -285,7 +288,10 @@ fn public_page() -> Html {
 
             <section class="gallery" aria-label="Cooper and Co photo preview">
                 {for site.gallery.iter().map(|image| html! {
-                    <img src={image.src.clone()} alt={image.alt.clone()} width="1200" height="1200" loading="lazy" />
+                    <picture>
+                        <source srcset={avif_src(&image.src)} type="image/avif" />
+                        <img src={image.src.clone()} alt={image.alt.clone()} width="1200" height="1200" loading="lazy" decoding="async" sizes="(max-width: 820px) 50vw, 33vw" />
+                    </picture>
                 })}
             </section>
 
@@ -440,6 +446,12 @@ fn seed_content() -> SiteContent {
             },
         ],
     }
+}
+
+fn avif_src(src: &str) -> String {
+    src.strip_suffix(".webp")
+        .map(|base| format!("{base}.avif"))
+        .unwrap_or_else(|| src.to_owned())
 }
 
 fn main() {

@@ -25,6 +25,10 @@ a {
   color: inherit;
 }
 
+a:hover {
+  text-decoration-thickness: 2px;
+}
+
 a:focus-visible,
 button:focus-visible,
 input:focus-visible,
@@ -101,6 +105,9 @@ nav {
 
 nav a,
 footer a {
+  min-height: 36px;
+  display: inline-flex;
+  align-items: center;
   text-decoration: none;
 }
 
@@ -124,11 +131,15 @@ footer a {
     linear-gradient(0deg, rgba(12, 22, 18, 0.55), rgba(12, 22, 18, 0));
 }
 
+.hero-media,
 .hero-image {
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
+}
+
+.hero-image {
   object-fit: cover;
 }
 
@@ -316,8 +327,15 @@ form {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
+.gallery picture {
+  display: block;
+  aspect-ratio: 1;
+  background: #d8ddd6;
+}
+
 .gallery img {
   width: 100%;
+  height: 100%;
   aspect-ratio: 1;
   object-fit: cover;
   background: #d8ddd6;
@@ -368,6 +386,11 @@ textarea {
   color: #17201b;
   background: #fbfaf7;
   font: inherit;
+}
+
+input:hover,
+textarea:hover {
+  border-color: rgba(40, 92, 77, 0.55);
 }
 
 input:invalid,

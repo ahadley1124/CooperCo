@@ -43,7 +43,7 @@
     <meta name="twitter:image" content="https://cooper-and-co.com/assets/facebook-cooperco-hero.webp" />
     <meta name="twitter:image:alt" content="Cooper & Co. pet services logo from the public Facebook page" />
 
-    <link rel="preload" as="image" href="/assets/facebook-cooperco-hero.webp" type="image/webp" />
+    <link rel="preload" as="image" href="/assets/facebook-cooperco-hero.avif" type="image/avif" />
     <link data-trunk rel="copy-dir" href="public/assets" />
     <link data-trunk rel="copy-file" href="public/robots.txt" />
     <link data-trunk rel="copy-file" href="public/robots" />
@@ -166,14 +166,19 @@
       </header>
 
       <section id="top" class="hero" aria-labelledby="home-title">
-        <img
-          class="hero-image"
-          src="/assets/facebook-cooperco-hero.webp"
-          alt="Cooper & Co. pet services logo from the public Facebook page"
-          width="1600"
-          height="900"
-          fetchpriority="high"
-        />
+        <picture class="hero-media">
+          <source srcset="/assets/facebook-cooperco-hero.avif" type="image/avif" />
+          <img
+            class="hero-image"
+            src="/assets/facebook-cooperco-hero.webp"
+            alt="Cooper & Co. pet services logo from the public Facebook page"
+            width="1600"
+            height="900"
+            sizes="100vw"
+            fetchpriority="high"
+            decoding="async"
+          />
+        </picture>
         <div class="hero-copy">
           <p class="eyebrow">Pet service in Lorain County, Ohio</p>
           <h1 id="home-title">Cooper &amp; Co. pet services and dog training support</h1>
@@ -238,27 +243,42 @@
       </section>
 
       <section class="gallery" aria-label="Cooper and Co pet service photos">
-        <img
-          src="/assets/facebook-cooperco-gallery-1.webp"
-          alt="Cooper & Co. pet services logo from the public Facebook page"
-          width="1200"
-          height="1200"
-          loading="lazy"
-        />
-        <img
-          src="/assets/facebook-cooperco-gallery-2.webp"
-          alt="Cooper & Co. pet services logo from the public Facebook page"
-          width="1200"
-          height="1200"
-          loading="lazy"
-        />
-        <img
-          src="/assets/facebook-cooperco-gallery-3.webp"
-          alt="Cooper & Co. pet services logo from the public Facebook page"
-          width="1200"
-          height="1200"
-          loading="lazy"
-        />
+        <picture>
+          <source srcset="/assets/facebook-cooperco-gallery-1.avif" type="image/avif" />
+          <img
+            src="/assets/facebook-cooperco-gallery-1.webp"
+            alt="Cooper & Co. pet services logo from the public Facebook page"
+            width="1200"
+            height="1200"
+            loading="lazy"
+            decoding="async"
+            sizes="(max-width: 820px) 50vw, 33vw"
+          />
+        </picture>
+        <picture>
+          <source srcset="/assets/facebook-cooperco-gallery-2.avif" type="image/avif" />
+          <img
+            src="/assets/facebook-cooperco-gallery-2.webp"
+            alt="Cooper & Co. pet services logo from the public Facebook page"
+            width="1200"
+            height="1200"
+            loading="lazy"
+            decoding="async"
+            sizes="(max-width: 820px) 50vw, 33vw"
+          />
+        </picture>
+        <picture>
+          <source srcset="/assets/facebook-cooperco-gallery-3.avif" type="image/avif" />
+          <img
+            src="/assets/facebook-cooperco-gallery-3.webp"
+            alt="Cooper & Co. pet services logo from the public Facebook page"
+            width="1200"
+            height="1200"
+            loading="lazy"
+            decoding="async"
+            sizes="(max-width: 820px) 50vw, 33vw"
+          />
+        </picture>
       </section>
 
       <section id="service-area" class="section" aria-labelledby="area-title">
