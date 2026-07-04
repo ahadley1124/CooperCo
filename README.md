@@ -84,23 +84,89 @@ Open `http://127.0.0.1:9001`.
 
 ## Admin Login
 
-The admin area is available at `/admin` and uses Microsoft OAuth. Create a Microsoft Entra app registration with this redirect URI:
+The admin area is available at `/admin` and uses Microsoft Entra OAuth 2.0 Authorization Code flow with PKCE.
+
+Current flow:
+
+1. The Yew admin page renders a "Sign in with Microsoft" link to `/auth/microsoft/login`.
+2. Rocket handles `/auth/microsoft/login`, generates `state`, `nonce`, a PKCE `code_verifier`, and a `code_challenge`.
+3. Rocket stores the transient OAuth context in an encrypted, HttpOnly, SameSite=Lax private cookie and redirects to `https://login.microsoftonline.com/{tenant}/oauth2/v2.0/authorize`.
+4. Microsoft redirects back to the backend callback route, `/auth/microsoft/callback`.
+5. Rocket validates `state`, exchanges the code with the saved PKCE verifier, validates the ID token signature and claims, fetches the Microsoft profile, creates the admin session cookie, and redirects back to `/admin`.
+6. The frontend does not infer auth from URL parameters. It calls `/api/admin/me` and relies on the backend session cookie.
+
+### Microsoft Entra app registration
+
+Create or update an app registration in Microsoft Entra ID:
+
+- Platform type: Web
+- Redirect URI for local backend testing:
 
 ```text
-http://127.0.0.1:8080/auth/microsoft/callback
+http://127.0.0.1:9001/auth/microsoft/callback
 ```
 
-Set these environment variables before starting the backend:
+- Redirect URI for production: use the public backend URL that reaches Rocket, for example:
+
+```text
+https://api.example.com/auth/microsoft/callback
+```
+
+If the same public host serves both the frontend and backend, the production redirect can be:
+
+```text
+https://www.example.com/auth/microsoft/callback
+```
+
+The redirect URI must match `MICROSOFT_REDIRECT_URI` exactly, including scheme, host, port, and path. Do not register the Trunk dev server or a static frontend host for the callback unless that host proxies `/auth/microsoft/callback` to Rocket.
+
+Required delegated Microsoft Graph scopes:
+
+```text
+openid profile email User.Read
+```
+
+Set these environment variables before starting Rocket locally:
 
 ```powershell
 $env:MICROSOFT_CLIENT_ID="..."
-$env:MICROSOFT_CLIENT_SECRET="..."
+$env:MICROSOFT_CLIENT_SECRET="..." # optional when using PKCE as a public client; recommended for confidential web apps
 $env:MICROSOFT_TENANT_ID="common" # or your tenant ID
-$env:MICROSOFT_REDIRECT_URI="http://127.0.0.1:8080/auth/microsoft/callback"
+$env:BACKEND_BASE_URL="http://127.0.0.1:9001"
+$env:PUBLIC_APP_URL="http://127.0.0.1:9001"
+$env:MICROSOFT_REDIRECT_URI="http://127.0.0.1:9001/auth/microsoft/callback"
+$env:MICROSOFT_POST_LOGIN_REDIRECT_URI="http://127.0.0.1:9001/admin"
 $env:ADMIN_ALLOWED_EMAILS="admin@example.com,second-admin@example.com"
 ```
 
-Rocket private cookies require a stable production secret key. Set `ROCKET_SECRET_KEY` in deployment so existing admin sessions remain valid across restarts.
+Cookie settings:
+
+- OAuth state and admin session cookies are encrypted Rocket private cookies.
+- Cookies are `HttpOnly`, `SameSite=Lax`, and `Path=/`.
+- `Secure` is automatic when `PUBLIC_APP_URL` starts with `https://`; override with `COOKIE_SECURE=true` if needed.
+- Set `COOKIE_DOMAIN` only in production when the cookie must span subdomains, for example `.example.com`.
+- Rocket private cookies require a stable production secret key. Set `ROCKET_SECRET_KEY` in deployment so existing admin sessions remain valid across restarts.
+
+For production behind a reverse proxy:
+
+- `MICROSOFT_REDIRECT_URI` must be the public HTTPS callback URL, not the internal Rocket listener URL.
+- `PUBLIC_APP_URL` must be the public frontend/app URL used after login.
+- `BACKEND_BASE_URL` should be the public backend URL used to construct defaults.
+- The proxy must route `/auth/*` and `/api/*` to Rocket before any SPA fallback. Otherwise the Yew/static frontend can swallow `/auth/microsoft/callback`.
+- Forward the original host and scheme with headers such as `X-Forwarded-Host` and `X-Forwarded-Proto` according to your proxy/Rocket deployment setup.
+
+OAuth failures are returned as visible HTTP errors and logged with `oauth event=...` records. Logs include state/nonce/PKCE fingerprints and redirect targets, but do not log client secrets, auth codes, tokens, refresh tokens, or raw cookies.
+
+### Local OAuth test checklist
+
+Run the local validation checks:
+
+```powershell
+cargo test -p backend
+cargo check
+```
+
+Then start Rocket on `http://127.0.0.1:9001`, open `http://127.0.0.1:9001/admin`, and click "Sign in with Microsoft". The browser should leave the app for `login.microsoftonline.com`, return to `http://127.0.0.1:9001/auth/microsoft/callback`, and finish back at `http://127.0.0.1:9001/admin`. If it fails, check the Rocket logs for the `oauth event=...` entry that corresponds to the failed step.
 
 Admin APIs under `/api/admin/*` require either a valid Microsoft admin session cookie or an `Authorization: Bearer <token>` header matching `ADMIN_API_TOKEN`:
 

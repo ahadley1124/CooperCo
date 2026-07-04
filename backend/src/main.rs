@@ -1,6 +1,14 @@
-use std::{env, path::PathBuf, sync::Arc};
+use std::{
+    env,
+    path::PathBuf,
+    sync::Arc,
+    time::{SystemTime, UNIX_EPOCH},
+};
 
 use anyhow::Context;
+use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
+use jsonwebtoken::{decode, decode_header, Algorithm, DecodingKey, Validation};
+use rand::{rngs::OsRng, RngCore};
 use rocket::{
     delete,
     fs::{FileServer, NamedFile},
@@ -13,9 +21,11 @@ use rocket::{
     response::Redirect,
     routes,
     serde::json::Json,
+    time::Duration,
     Config, Request, State,
 };
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 use surrealdb::{
     engine::remote::ws::{Client, Ws},
     opt::auth::Root,
@@ -27,7 +37,9 @@ use uuid::Uuid;
 
 type Db = Surreal<Client>;
 const ADMIN_SESSION_COOKIE: &str = "cooperco_admin_session";
-const ADMIN_STATE_COOKIE: &str = "cooperco_ms_state";
+const ADMIN_OAUTH_COOKIE: &str = "cooperco_ms_oauth";
+const MICROSOFT_AUTHORITY: &str = "https://login.microsoftonline.com";
+const MICROSOFT_SCOPES: &str = "openid profile email User.Read";
 
 #[derive(Clone)]
 enum Store {
@@ -121,6 +133,25 @@ struct AdminSession {
     name: Option<String>,
 }
 
+#[derive(Debug, Clone)]
+struct MicrosoftOAuthConfig {
+    client_id: String,
+    client_secret: Option<String>,
+    tenant: String,
+    redirect_uri: String,
+    post_login_redirect_uri: String,
+    behind_proxy: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct MicrosoftOAuthContext {
+    state: String,
+    nonce: String,
+    code_verifier: String,
+    redirect_uri: String,
+    created_at: u64,
+}
+
 #[derive(Debug, Serialize)]
 struct AdminProfile {
     email: String,
@@ -130,6 +161,13 @@ struct AdminProfile {
 #[derive(Debug, Deserialize)]
 struct MicrosoftTokenResponse {
     access_token: String,
+    id_token: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct MicrosoftTokenError {
+    error: Option<String>,
+    error_description: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -139,6 +177,32 @@ struct MicrosoftUser {
     mail: Option<String>,
     #[serde(rename = "userPrincipalName")]
     user_principal_name: Option<String>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+struct MicrosoftIdTokenClaims {
+    aud: String,
+    exp: u64,
+    iss: String,
+    nonce: String,
+    tid: Option<String>,
+    email: Option<String>,
+    preferred_username: Option<String>,
+    name: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+struct MicrosoftJwks {
+    keys: Vec<MicrosoftJwk>,
+}
+
+#[derive(Debug, Deserialize)]
+struct MicrosoftJwk {
+    kid: Option<String>,
+    kty: String,
+    n: String,
+    e: String,
+    alg: Option<String>,
 }
 
 #[derive(Debug)]
@@ -239,28 +303,49 @@ fn sitemap_xml() -> RawXml<String> {
 
 #[get("/auth/microsoft/login")]
 fn microsoft_login(cookies: &CookieJar<'_>) -> Result<Redirect, status::Custom<String>> {
-    let client_id = env::var("MICROSOFT_CLIENT_ID").map_err(|_| {
+    let config = microsoft_oauth_config()?;
+    let state = random_urlsafe(32);
+    let nonce = random_urlsafe(32);
+    let code_verifier = random_urlsafe(32);
+    let code_challenge = pkce_challenge(&code_verifier);
+    let context = MicrosoftOAuthContext {
+        state: state.clone(),
+        nonce: nonce.clone(),
+        code_verifier,
+        redirect_uri: config.redirect_uri.clone(),
+        created_at: unix_timestamp(),
+    };
+    let context_json = serde_json::to_string(&context).map_err(|error| {
         status::Custom(
             Status::InternalServerError,
-            "MICROSOFT_CLIENT_ID is required for admin login".to_owned(),
+            format!("oauth context error: {error}"),
         )
     })?;
 
-    let tenant = microsoft_tenant();
-    let redirect_uri = microsoft_redirect_uri();
-    let state = Uuid::new_v4().to_string();
-    cookies.add_private(
-        Cookie::build((ADMIN_STATE_COOKIE, state.clone()))
-            .http_only(true)
-            .same_site(SameSite::Lax)
-            .path("/")
-            .build(),
-    );
+    cookies.add_private(oauth_cookie(
+        ADMIN_OAUTH_COOKIE,
+        context_json,
+        Duration::minutes(10),
+    ));
 
-    let url = format!(
-        "https://login.microsoftonline.com/{tenant}/oauth2/v2.0/authorize?client_id={client_id}&response_type=code&redirect_uri={redirect_uri}&response_mode=query&scope=openid%20profile%20email%20User.Read&state={state}",
-        redirect_uri = percent_encode(&redirect_uri),
-        state = percent_encode(&state),
+    let url = microsoft_authorization_url(&config, &state, &nonce, &code_challenge);
+    log_oauth_event(
+        "auth_start",
+        &[
+            ("tenant", config.tenant.as_str()),
+            ("redirect_uri", config.redirect_uri.as_str()),
+            (
+                "behind_proxy",
+                if config.behind_proxy { "true" } else { "false" },
+            ),
+            ("state_id", short_fingerprint(&state).as_str()),
+            ("nonce_id", short_fingerprint(&nonce).as_str()),
+            (
+                "pkce_challenge_id",
+                short_fingerprint(&code_challenge).as_str(),
+            ),
+            ("target", url.as_str()),
+        ],
     );
 
     Ok(Redirect::to(url))
@@ -275,33 +360,87 @@ async fn microsoft_callback(
     error_description: Option<&str>,
 ) -> Result<Redirect, status::Custom<String>> {
     if let Some(error) = error {
-        return Err(status::Custom(
-            Status::Unauthorized,
-            error_description.unwrap_or(error).to_owned(),
-        ));
+        return Err(microsoft_callback_error(error, error_description));
     }
 
-    let expected_state = cookies
-        .get_private(ADMIN_STATE_COOKIE)
+    log_oauth_event(
+        "callback_received",
+        &[
+            ("has_code", if code.is_some() { "true" } else { "false" }),
+            (
+                "state_id",
+                state.map(short_fingerprint).unwrap_or_default().as_str(),
+            ),
+        ],
+    );
+
+    let context_json = cookies
+        .get_private(ADMIN_OAUTH_COOKIE)
         .map(|cookie| cookie.value().to_owned())
-        .ok_or_else(|| status::Custom(Status::Unauthorized, "missing login state".to_owned()))?;
+        .ok_or_else(|| {
+            log_oauth_event("state_validation", &[("result", "missing_context")]);
+            status::Custom(Status::Unauthorized, "missing login state".to_owned())
+        })?;
+    let context: MicrosoftOAuthContext = serde_json::from_str(&context_json).map_err(|error| {
+        log_oauth_event("state_validation", &[("result", "invalid_context")]);
+        status::Custom(
+            Status::Unauthorized,
+            format!("invalid login state: {error}"),
+        )
+    })?;
 
-    if state != Some(expected_state.as_str()) {
+    if let Err(reason) = validate_oauth_context(&context, state, unix_timestamp()) {
+        cookies.remove_private(remove_oauth_cookie(ADMIN_OAUTH_COOKIE));
+        let expected_state_id = short_fingerprint(&context.state);
+        let received_state_id = state.map(short_fingerprint).unwrap_or_default();
+        log_oauth_event(
+            "state_validation",
+            &[
+                ("result", reason),
+                ("expected_state_id", expected_state_id.as_str()),
+                ("received_state_id", received_state_id.as_str()),
+            ],
+        );
         return Err(status::Custom(
             Status::Unauthorized,
-            "invalid login state".to_owned(),
+            format!("invalid login state: {reason}"),
         ));
     }
 
-    cookies.remove_private(Cookie::build(ADMIN_STATE_COOKIE).path("/").build());
+    cookies.remove_private(remove_oauth_cookie(ADMIN_OAUTH_COOKIE));
+    log_oauth_event(
+        "state_validation",
+        &[
+            ("result", "ok"),
+            ("state_id", short_fingerprint(&context.state).as_str()),
+        ],
+    );
 
-    let code =
-        code.ok_or_else(|| status::Custom(Status::BadRequest, "missing auth code".to_owned()))?;
-    let token = exchange_microsoft_code(code).await?;
+    let code = require_auth_code(code)?;
+    let config = microsoft_oauth_config()?;
+    if context.redirect_uri != config.redirect_uri {
+        log_oauth_event(
+            "redirect_uri_validation",
+            &[
+                ("result", "mismatch"),
+                ("stored", context.redirect_uri.as_str()),
+                ("configured", config.redirect_uri.as_str()),
+            ],
+        );
+        return Err(status::Custom(
+            Status::Unauthorized,
+            "login redirect URI changed during sign-in".to_owned(),
+        ));
+    }
+
+    let token = exchange_microsoft_code(code, &context.code_verifier, &config).await?;
+    let claims = validate_microsoft_id_token(&token.id_token, &config, &context.nonce).await?;
     let user = fetch_microsoft_user(&token.access_token).await?;
     let email = user
         .mail
         .or(user.user_principal_name)
+        .or(claims.email)
+        .or(claims.preferred_username)
         .ok_or_else(|| {
             status::Custom(
                 Status::Forbidden,
@@ -319,7 +458,7 @@ async fn microsoft_callback(
 
     let session = AdminSession {
         email,
-        name: user.display_name,
+        name: user.display_name.or(claims.name),
     };
     let session_json = serde_json::to_string(&session).map_err(|error| {
         status::Custom(
@@ -328,21 +467,21 @@ async fn microsoft_callback(
         )
     })?;
 
-    cookies.add_private(
-        Cookie::build((ADMIN_SESSION_COOKIE, session_json))
-            .http_only(true)
-            .same_site(SameSite::Lax)
-            .path("/")
-            .build(),
+    cookies.add_private(session_cookie(ADMIN_SESSION_COOKIE, session_json));
+    log_oauth_event("session_created", &[("email", session.email.as_str())]);
+    log_oauth_event(
+        "final_redirect",
+        &[("target", config.post_login_redirect_uri.as_str())],
     );
 
-    Ok(Redirect::to("/admin"))
+    Ok(Redirect::to(config.post_login_redirect_uri))
 }
 
 #[post("/auth/logout")]
 fn logout(cookies: &CookieJar<'_>) -> Redirect {
-    cookies.remove_private(Cookie::build(ADMIN_SESSION_COOKIE).path("/").build());
-    Redirect::to("/admin")
+    cookies.remove_private(remove_oauth_cookie(ADMIN_SESSION_COOKIE));
+    log_oauth_event("logout", &[("result", "session_cleared")]);
+    Redirect::to(post_login_redirect_uri())
 }
 
 #[get("/api/admin/me")]
@@ -581,44 +720,99 @@ fn bearer_token_allowed(headers: &HeaderMap<'_>) -> bool {
 
 async fn exchange_microsoft_code(
     code: &str,
+    code_verifier: &str,
+    config: &MicrosoftOAuthConfig,
 ) -> Result<MicrosoftTokenResponse, status::Custom<String>> {
-    let client_id = env::var("MICROSOFT_CLIENT_ID").map_err(|_| {
-        status::Custom(
-            Status::InternalServerError,
-            "MICROSOFT_CLIENT_ID is required".to_owned(),
-        )
-    })?;
-    let client_secret = env::var("MICROSOFT_CLIENT_SECRET").map_err(|_| {
-        status::Custom(
-            Status::InternalServerError,
-            "MICROSOFT_CLIENT_SECRET is required".to_owned(),
-        )
-    })?;
-    let tenant = microsoft_tenant();
-    let redirect_uri = microsoft_redirect_uri();
-    let token_url = format!("https://login.microsoftonline.com/{tenant}/oauth2/v2.0/token");
+    let token_url = format!(
+        "{}/{}/oauth2/v2.0/token",
+        MICROSOFT_AUTHORITY, config.tenant
+    );
+    let mut form = vec![
+        ("client_id", config.client_id.clone()),
+        ("code", code.to_owned()),
+        ("redirect_uri", config.redirect_uri.clone()),
+        ("grant_type", "authorization_code".to_owned()),
+        ("code_verifier", code_verifier.to_owned()),
+    ];
+    if let Some(client_secret) = &config.client_secret {
+        form.push(("client_secret", client_secret.clone()));
+    }
 
-    reqwest::Client::new()
+    log_oauth_event(
+        "token_exchange",
+        &[
+            ("result", "request"),
+            ("tenant", config.tenant.as_str()),
+            ("redirect_uri", config.redirect_uri.as_str()),
+            (
+                "uses_client_secret",
+                if config.client_secret.is_some() {
+                    "true"
+                } else {
+                    "false"
+                },
+            ),
+        ],
+    );
+
+    let response = reqwest::Client::new()
         .post(token_url)
-        .form(&[
-            ("client_id", client_id.as_str()),
-            ("client_secret", client_secret.as_str()),
-            ("code", code),
-            ("redirect_uri", redirect_uri.as_str()),
-            ("grant_type", "authorization_code"),
-        ])
+        .form(&form)
         .send()
         .await
-        .map_err(auth_server_error)?
-        .error_for_status()
-        .map_err(auth_server_error)?
-        .json::<MicrosoftTokenResponse>()
-        .await
-        .map_err(auth_server_error)
+        .map_err(auth_server_error)?;
+    let status_code = response.status();
+    let body = response.text().await.map_err(auth_server_error)?;
+    parse_microsoft_token_response(status_code, &body)
+}
+
+fn parse_microsoft_token_response(
+    status_code: reqwest::StatusCode,
+    body: &str,
+) -> Result<MicrosoftTokenResponse, status::Custom<String>> {
+    if !status_code.is_success() {
+        let microsoft_error = serde_json::from_str::<MicrosoftTokenError>(body).ok();
+        log_oauth_event(
+            "token_exchange",
+            &[
+                ("result", "error"),
+                ("status", status_code.as_str()),
+                (
+                    "error",
+                    microsoft_error
+                        .as_ref()
+                        .and_then(|error| error.error.as_deref())
+                        .unwrap_or("unknown"),
+                ),
+                (
+                    "description",
+                    microsoft_error
+                        .as_ref()
+                        .and_then(|error| error.error_description.as_deref())
+                        .unwrap_or(""),
+                ),
+            ],
+        );
+        return Err(status::Custom(
+            Status::Unauthorized,
+            "Microsoft token exchange failed".to_owned(),
+        ));
+    }
+
+    let token = serde_json::from_str::<MicrosoftTokenResponse>(body).map_err(|error| {
+        log_oauth_event("token_exchange", &[("result", "invalid_json")]);
+        status::Custom(
+            Status::InternalServerError,
+            format!("Microsoft token response was invalid: {error}"),
+        )
+    })?;
+    log_oauth_event("token_exchange", &[("result", "ok")]);
+    Ok(token)
 }
 
 async fn fetch_microsoft_user(access_token: &str) -> Result<MicrosoftUser, status::Custom<String>> {
-    reqwest::Client::new()
+    log_oauth_event("user_fetch", &[("result", "request")]);
+    let user = reqwest::Client::new()
         .get("https://graph.microsoft.com/v1.0/me")
         .bearer_auth(access_token)
         .send()
@@ -628,16 +822,359 @@ async fn fetch_microsoft_user(access_token: &str) -> Result<MicrosoftUser, statu
         .map_err(auth_server_error)?
         .json::<MicrosoftUser>()
         .await
-        .map_err(auth_server_error)
+        .map_err(auth_server_error)?;
+    log_oauth_event("user_fetch", &[("result", "ok")]);
+    Ok(user)
 }
 
-fn microsoft_tenant() -> String {
-    env::var("MICROSOFT_TENANT_ID").unwrap_or_else(|_| "common".to_owned())
+async fn validate_microsoft_id_token(
+    id_token: &str,
+    config: &MicrosoftOAuthConfig,
+    expected_nonce: &str,
+) -> Result<MicrosoftIdTokenClaims, status::Custom<String>> {
+    let header = decode_header(id_token).map_err(|error| {
+        log_oauth_event("id_token_validation", &[("result", "invalid_header")]);
+        status::Custom(
+            Status::Unauthorized,
+            format!("Microsoft ID token header was invalid: {error}"),
+        )
+    })?;
+    let kid = header.kid.ok_or_else(|| {
+        log_oauth_event("id_token_validation", &[("result", "missing_kid")]);
+        status::Custom(
+            Status::Unauthorized,
+            "Microsoft ID token was missing a key id".to_owned(),
+        )
+    })?;
+    if header.alg != Algorithm::RS256 {
+        log_oauth_event("id_token_validation", &[("result", "invalid_alg")]);
+        return Err(status::Custom(
+            Status::Unauthorized,
+            "Microsoft ID token used an unexpected algorithm".to_owned(),
+        ));
+    }
+
+    let jwks_url = format!(
+        "{}/{}/discovery/v2.0/keys",
+        MICROSOFT_AUTHORITY, config.tenant
+    );
+    let jwks = reqwest::Client::new()
+        .get(jwks_url)
+        .send()
+        .await
+        .map_err(auth_server_error)?
+        .error_for_status()
+        .map_err(auth_server_error)?
+        .json::<MicrosoftJwks>()
+        .await
+        .map_err(auth_server_error)?;
+    let jwk = jwks
+        .keys
+        .into_iter()
+        .find(|key| key.kid.as_deref() == Some(kid.as_str()) && key.kty == "RSA")
+        .ok_or_else(|| {
+            log_oauth_event("id_token_validation", &[("result", "missing_jwk")]);
+            status::Custom(
+                Status::Unauthorized,
+                "Microsoft signing key was not found".to_owned(),
+            )
+        })?;
+    if jwk.alg.as_deref().is_some_and(|alg| alg != "RS256") {
+        log_oauth_event("id_token_validation", &[("result", "invalid_jwk_alg")]);
+        return Err(status::Custom(
+            Status::Unauthorized,
+            "Microsoft signing key used an unexpected algorithm".to_owned(),
+        ));
+    }
+
+    let mut validation = Validation::new(Algorithm::RS256);
+    validation.set_audience(&[config.client_id.as_str()]);
+    let claims = decode::<MicrosoftIdTokenClaims>(
+        id_token,
+        &DecodingKey::from_rsa_components(&jwk.n, &jwk.e).map_err(|error| {
+            log_oauth_event("id_token_validation", &[("result", "invalid_jwk")]);
+            status::Custom(
+                Status::Unauthorized,
+                format!("Microsoft signing key was invalid: {error}"),
+            )
+        })?,
+        &validation,
+    )
+    .map_err(|error| {
+        log_oauth_event(
+            "id_token_validation",
+            &[("result", "signature_or_claims_failed")],
+        );
+        status::Custom(
+            Status::Unauthorized,
+            format!("Microsoft ID token validation failed: {error}"),
+        )
+    })?
+    .claims;
+
+    validate_id_token_claims(&claims, config, expected_nonce)?;
+    log_oauth_event(
+        "id_token_validation",
+        &[
+            ("result", "ok"),
+            ("issuer", claims.iss.as_str()),
+            ("tenant_id", claims.tid.as_deref().unwrap_or("")),
+        ],
+    );
+    Ok(claims)
+}
+
+fn validate_id_token_claims(
+    claims: &MicrosoftIdTokenClaims,
+    config: &MicrosoftOAuthConfig,
+    expected_nonce: &str,
+) -> Result<(), status::Custom<String>> {
+    if claims.aud != config.client_id {
+        log_oauth_event("id_token_validation", &[("result", "invalid_audience")]);
+        return Err(status::Custom(
+            Status::Unauthorized,
+            "Microsoft ID token audience was invalid".to_owned(),
+        ));
+    }
+    if claims.exp <= unix_timestamp() {
+        log_oauth_event("id_token_validation", &[("result", "expired")]);
+        return Err(status::Custom(
+            Status::Unauthorized,
+            "Microsoft ID token was expired".to_owned(),
+        ));
+    }
+    if claims.nonce != expected_nonce {
+        log_oauth_event("id_token_validation", &[("result", "invalid_nonce")]);
+        return Err(status::Custom(
+            Status::Unauthorized,
+            "Microsoft ID token nonce was invalid".to_owned(),
+        ));
+    }
+    if !issuer_allowed(&claims.iss, claims.tid.as_deref(), &config.tenant) {
+        log_oauth_event("id_token_validation", &[("result", "invalid_issuer")]);
+        return Err(status::Custom(
+            Status::Unauthorized,
+            "Microsoft ID token issuer was invalid".to_owned(),
+        ));
+    }
+
+    Ok(())
+}
+
+fn validate_oauth_context(
+    context: &MicrosoftOAuthContext,
+    received_state: Option<&str>,
+    now: u64,
+) -> Result<(), &'static str> {
+    if context.created_at + 600 < now {
+        return Err("expired");
+    }
+
+    if received_state != Some(context.state.as_str()) {
+        return Err("mismatch");
+    }
+
+    Ok(())
+}
+
+fn require_auth_code(code: Option<&str>) -> Result<&str, status::Custom<String>> {
+    code.ok_or_else(|| status::Custom(Status::BadRequest, "missing auth code".to_owned()))
+}
+
+fn microsoft_callback_error(
+    error: &str,
+    error_description: Option<&str>,
+) -> status::Custom<String> {
+    log_oauth_event(
+        "callback_microsoft_error",
+        &[
+            ("error", error),
+            ("description", error_description.unwrap_or("")),
+        ],
+    );
+    status::Custom(
+        Status::Unauthorized,
+        error_description.unwrap_or(error).to_owned(),
+    )
+}
+
+fn issuer_allowed(issuer: &str, token_tenant: Option<&str>, configured_tenant: &str) -> bool {
+    let issuer = issuer.trim_end_matches('/');
+    if let Some(token_tenant) = token_tenant {
+        let expected = format!("{MICROSOFT_AUTHORITY}/{token_tenant}/v2.0");
+        if issuer == expected {
+            return true;
+        }
+    }
+
+    !matches!(configured_tenant, "common" | "organizations" | "consumers")
+        && issuer == format!("{MICROSOFT_AUTHORITY}/{configured_tenant}/v2.0")
+}
+
+fn microsoft_oauth_config() -> Result<MicrosoftOAuthConfig, status::Custom<String>> {
+    let client_id = required_env("MICROSOFT_CLIENT_ID")?;
+    let tenant = env::var("MICROSOFT_TENANT_ID").unwrap_or_else(|_| "common".to_owned());
+    let redirect_uri = microsoft_redirect_uri();
+    let post_login_redirect_uri = post_login_redirect_uri();
+
+    Ok(MicrosoftOAuthConfig {
+        client_id,
+        client_secret: env::var("MICROSOFT_CLIENT_SECRET")
+            .ok()
+            .filter(|secret| !secret.trim().is_empty()),
+        tenant,
+        redirect_uri,
+        post_login_redirect_uri,
+        behind_proxy: bool_env("BEHIND_PROXY"),
+    })
+}
+
+fn required_env(name: &str) -> Result<String, status::Custom<String>> {
+    env::var(name)
+        .ok()
+        .filter(|value| !value.trim().is_empty())
+        .ok_or_else(|| {
+            status::Custom(
+                Status::InternalServerError,
+                format!("{name} is required for Microsoft admin login"),
+            )
+        })
 }
 
 fn microsoft_redirect_uri() -> String {
     env::var("MICROSOFT_REDIRECT_URI")
-        .unwrap_or_else(|_| "http://127.0.0.1:8080/auth/microsoft/callback".to_owned())
+        .ok()
+        .filter(|value| !value.trim().is_empty())
+        .unwrap_or_else(|| format!("{}/auth/microsoft/callback", backend_base_url()))
+}
+
+fn post_login_redirect_uri() -> String {
+    env::var("MICROSOFT_POST_LOGIN_REDIRECT_URI")
+        .or_else(|_| env::var("POST_LOGIN_REDIRECT_URI"))
+        .ok()
+        .filter(|value| !value.trim().is_empty())
+        .unwrap_or_else(|| format!("{}/admin", public_app_url()))
+}
+
+fn backend_base_url() -> String {
+    env::var("BACKEND_BASE_URL")
+        .ok()
+        .filter(|value| !value.trim().is_empty())
+        .unwrap_or_else(|| "http://127.0.0.1:9001".to_owned())
+        .trim_end_matches('/')
+        .to_owned()
+}
+
+fn public_app_url() -> String {
+    env::var("PUBLIC_APP_URL")
+        .or_else(|_| env::var("PUBLIC_SITE_URL"))
+        .ok()
+        .filter(|value| !value.trim().is_empty())
+        .unwrap_or_else(|| "http://127.0.0.1:9001".to_owned())
+        .trim_end_matches('/')
+        .to_owned()
+}
+
+fn microsoft_authorization_url(
+    config: &MicrosoftOAuthConfig,
+    state: &str,
+    nonce: &str,
+    code_challenge: &str,
+) -> String {
+    format!(
+        "{}/{}/oauth2/v2.0/authorize?client_id={}&response_type=code&redirect_uri={}&response_mode=query&scope={}&state={}&nonce={}&code_challenge={}&code_challenge_method=S256",
+        MICROSOFT_AUTHORITY,
+        config.tenant,
+        percent_encode(&config.client_id),
+        percent_encode(&config.redirect_uri),
+        percent_encode(MICROSOFT_SCOPES),
+        percent_encode(state),
+        percent_encode(nonce),
+        percent_encode(code_challenge),
+    )
+}
+
+fn random_urlsafe(byte_len: usize) -> String {
+    let mut bytes = vec![0_u8; byte_len];
+    OsRng.fill_bytes(&mut bytes);
+    URL_SAFE_NO_PAD.encode(bytes)
+}
+
+fn pkce_challenge(code_verifier: &str) -> String {
+    URL_SAFE_NO_PAD.encode(Sha256::digest(code_verifier.as_bytes()))
+}
+
+fn unix_timestamp() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|duration| duration.as_secs())
+        .unwrap_or_default()
+}
+
+fn oauth_cookie(name: &'static str, value: String, max_age: Duration) -> Cookie<'static> {
+    let mut builder = Cookie::build((name, value))
+        .http_only(true)
+        .secure(cookie_secure())
+        .same_site(SameSite::Lax)
+        .path("/")
+        .max_age(max_age);
+    if let Some(domain) = cookie_domain() {
+        builder = builder.domain(domain);
+    }
+    builder.build()
+}
+
+fn session_cookie(name: &'static str, value: String) -> Cookie<'static> {
+    oauth_cookie(name, value, Duration::days(7))
+}
+
+fn remove_oauth_cookie(name: &'static str) -> Cookie<'static> {
+    let mut builder = Cookie::build(name)
+        .path("/")
+        .secure(cookie_secure())
+        .same_site(SameSite::Lax);
+    if let Some(domain) = cookie_domain() {
+        builder = builder.domain(domain);
+    }
+    builder.build()
+}
+
+fn cookie_secure() -> bool {
+    env::var("COOKIE_SECURE")
+        .map(|value| truthy(&value))
+        .unwrap_or_else(|_| public_app_url().starts_with("https://"))
+}
+
+fn bool_env(name: &str) -> bool {
+    env::var(name).map(|value| truthy(&value)).unwrap_or(false)
+}
+
+fn truthy(value: &str) -> bool {
+    matches!(value.trim(), "1" | "true" | "TRUE" | "yes" | "YES")
+}
+
+fn cookie_domain() -> Option<String> {
+    env::var("COOKIE_DOMAIN")
+        .ok()
+        .map(|domain| domain.trim().to_owned())
+        .filter(|domain| !domain.is_empty())
+}
+
+fn short_fingerprint(value: &str) -> String {
+    URL_SAFE_NO_PAD
+        .encode(Sha256::digest(value.as_bytes()))
+        .chars()
+        .take(12)
+        .collect()
+}
+
+fn log_oauth_event(event: &str, fields: &[(&str, &str)]) {
+    let details = fields
+        .iter()
+        .map(|(key, value)| format!("{key}={}", value.replace(['\n', '\r'], " ")))
+        .collect::<Vec<_>>()
+        .join(" ");
+    eprintln!("oauth event={event} {details}");
 }
 
 fn public_site_urls() -> Vec<String> {
@@ -848,5 +1385,281 @@ fn seed_content() -> SiteContent {
                 alt: "Cooper & Co. pet services logo from the public Facebook page".to_owned(),
             },
         ],
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use rocket::local::blocking::Client;
+    use std::sync::Mutex;
+
+    static ENV_LOCK: Mutex<()> = Mutex::new(());
+
+    fn oauth_config() -> MicrosoftOAuthConfig {
+        MicrosoftOAuthConfig {
+            client_id: "client-id".to_owned(),
+            client_secret: None,
+            tenant: "organizations".to_owned(),
+            redirect_uri: "http://127.0.0.1:9001/auth/microsoft/callback".to_owned(),
+            post_login_redirect_uri: "http://127.0.0.1:9001/admin".to_owned(),
+            behind_proxy: false,
+        }
+    }
+
+    fn auth_test_client() -> Client {
+        Client::tracked(
+            rocket::build().mount("/", routes![microsoft_login, microsoft_callback, logout]),
+        )
+        .expect("valid rocket")
+    }
+
+    #[test]
+    fn pkce_challenge_matches_rfc7636_vector() {
+        let verifier = "dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk";
+
+        assert_eq!(
+            pkce_challenge(verifier),
+            "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM"
+        );
+    }
+
+    #[test]
+    fn authorization_url_includes_pkce_nonce_state_and_backend_callback() {
+        let config = oauth_config();
+        let url = microsoft_authorization_url(&config, "state value", "nonce value", "challenge");
+
+        assert!(url
+            .starts_with("https://login.microsoftonline.com/organizations/oauth2/v2.0/authorize?"));
+        assert!(url.contains("client_id=client-id"));
+        assert!(url.contains("response_type=code"));
+        assert!(url
+            .contains("redirect_uri=http%3A%2F%2F127.0.0.1%3A9001%2Fauth%2Fmicrosoft%2Fcallback"));
+        assert!(url.contains("scope=openid%20profile%20email%20User.Read"));
+        assert!(url.contains("state=state%20value"));
+        assert!(url.contains("nonce=nonce%20value"));
+        assert!(url.contains("code_challenge=challenge"));
+        assert!(url.contains("code_challenge_method=S256"));
+    }
+
+    #[test]
+    fn login_route_redirects_to_microsoft_and_sets_oauth_cookie() {
+        let _guard = ENV_LOCK.lock().unwrap_or_else(|error| error.into_inner());
+        env::set_var("MICROSOFT_CLIENT_ID", "client-id");
+        env::set_var("MICROSOFT_TENANT_ID", "organizations");
+        env::set_var("BACKEND_BASE_URL", "http://127.0.0.1:9001");
+        env::set_var("PUBLIC_APP_URL", "http://127.0.0.1:9001");
+        env::remove_var("MICROSOFT_REDIRECT_URI");
+
+        let client = auth_test_client();
+        let response = client.get("/auth/microsoft/login").dispatch();
+
+        assert_eq!(response.status(), Status::SeeOther);
+        let location = response.headers().get_one("Location").unwrap();
+        assert!(location
+            .starts_with("https://login.microsoftonline.com/organizations/oauth2/v2.0/authorize?"));
+        assert!(location
+            .contains("redirect_uri=http%3A%2F%2F127.0.0.1%3A9001%2Fauth%2Fmicrosoft%2Fcallback"));
+        assert!(location.contains("code_challenge_method=S256"));
+        let set_cookie = response.headers().get("Set-Cookie").collect::<Vec<_>>();
+        assert!(set_cookie
+            .iter()
+            .any(|cookie| cookie.contains(ADMIN_OAUTH_COOKIE)));
+
+        env::remove_var("MICROSOFT_CLIENT_ID");
+        env::remove_var("MICROSOFT_TENANT_ID");
+        env::remove_var("BACKEND_BASE_URL");
+        env::remove_var("PUBLIC_APP_URL");
+    }
+
+    #[test]
+    fn default_redirect_uri_uses_backend_base_url_not_old_8080_port() {
+        let _guard = ENV_LOCK.lock().unwrap_or_else(|error| error.into_inner());
+        env::remove_var("MICROSOFT_REDIRECT_URI");
+        env::remove_var("BACKEND_BASE_URL");
+
+        assert_eq!(
+            microsoft_redirect_uri(),
+            "http://127.0.0.1:9001/auth/microsoft/callback"
+        );
+    }
+
+    #[test]
+    fn configured_redirect_uri_takes_precedence() {
+        let _guard = ENV_LOCK.lock().unwrap_or_else(|error| error.into_inner());
+        env::set_var(
+            "MICROSOFT_REDIRECT_URI",
+            "https://api.example.com/auth/microsoft/callback",
+        );
+        env::set_var("BACKEND_BASE_URL", "http://127.0.0.1:9001");
+
+        assert_eq!(
+            microsoft_redirect_uri(),
+            "https://api.example.com/auth/microsoft/callback"
+        );
+
+        env::remove_var("MICROSOFT_REDIRECT_URI");
+        env::remove_var("BACKEND_BASE_URL");
+    }
+
+    #[test]
+    fn oauth_config_records_when_backend_is_behind_proxy() {
+        let _guard = ENV_LOCK.lock().unwrap_or_else(|error| error.into_inner());
+        env::set_var("MICROSOFT_CLIENT_ID", "client-id");
+        env::set_var("BEHIND_PROXY", "true");
+
+        let config = microsoft_oauth_config().unwrap();
+
+        assert!(config.behind_proxy);
+
+        env::remove_var("MICROSOFT_CLIENT_ID");
+        env::remove_var("BEHIND_PROXY");
+    }
+
+    #[test]
+    fn id_token_claim_validation_rejects_bad_nonce() {
+        let config = oauth_config();
+        let claims = MicrosoftIdTokenClaims {
+            aud: config.client_id.clone(),
+            exp: unix_timestamp() + 60,
+            iss: "https://login.microsoftonline.com/tenant-id/v2.0".to_owned(),
+            nonce: "actual".to_owned(),
+            tid: Some("tenant-id".to_owned()),
+            email: None,
+            preferred_username: None,
+            name: None,
+        };
+
+        assert!(validate_id_token_claims(&claims, &config, "expected").is_err());
+    }
+
+    #[test]
+    fn id_token_claim_validation_accepts_tenant_issuer_audience_expiry_and_nonce() {
+        let config = oauth_config();
+        let claims = MicrosoftIdTokenClaims {
+            aud: config.client_id.clone(),
+            exp: unix_timestamp() + 60,
+            iss: "https://login.microsoftonline.com/tenant-id/v2.0".to_owned(),
+            nonce: "nonce".to_owned(),
+            tid: Some("tenant-id".to_owned()),
+            email: Some("admin@example.com".to_owned()),
+            preferred_username: None,
+            name: Some("Admin".to_owned()),
+        };
+
+        assert!(validate_id_token_claims(&claims, &config, "nonce").is_ok());
+    }
+
+    #[test]
+    fn oauth_context_validation_accepts_matching_state() {
+        let context = MicrosoftOAuthContext {
+            state: "state".to_owned(),
+            nonce: "nonce".to_owned(),
+            code_verifier: "verifier".to_owned(),
+            redirect_uri: "http://127.0.0.1:9001/auth/microsoft/callback".to_owned(),
+            created_at: 100,
+        };
+
+        assert_eq!(validate_oauth_context(&context, Some("state"), 120), Ok(()));
+    }
+
+    #[test]
+    fn oauth_context_validation_rejects_state_mismatch_and_expiry() {
+        let context = MicrosoftOAuthContext {
+            state: "state".to_owned(),
+            nonce: "nonce".to_owned(),
+            code_verifier: "verifier".to_owned(),
+            redirect_uri: "http://127.0.0.1:9001/auth/microsoft/callback".to_owned(),
+            created_at: 100,
+        };
+
+        assert_eq!(
+            validate_oauth_context(&context, Some("other"), 120),
+            Err("mismatch")
+        );
+        assert_eq!(
+            validate_oauth_context(&context, Some("state"), 701),
+            Err("expired")
+        );
+    }
+
+    #[test]
+    fn missing_auth_code_returns_bad_request() {
+        let error = require_auth_code(None).unwrap_err();
+
+        assert_eq!(error.0, Status::BadRequest);
+        assert_eq!(error.1, "missing auth code");
+    }
+
+    #[test]
+    fn microsoft_error_callback_returns_visible_unauthorized_message() {
+        let error = microsoft_callback_error("access_denied", Some("User denied access"));
+
+        assert_eq!(error.0, Status::Unauthorized);
+        assert_eq!(error.1, "User denied access");
+    }
+
+    #[test]
+    fn token_exchange_error_returns_unauthorized_without_exposing_response_body() {
+        let error = parse_microsoft_token_response(
+            reqwest::StatusCode::BAD_REQUEST,
+            r#"{"error":"invalid_grant","error_description":"AADSTS bad code"}"#,
+        )
+        .unwrap_err();
+
+        assert_eq!(error.0, Status::Unauthorized);
+        assert_eq!(error.1, "Microsoft token exchange failed");
+    }
+
+    #[test]
+    fn session_cookie_uses_http_only_lax_path_max_age_and_local_secure_default() {
+        let _guard = ENV_LOCK.lock().unwrap_or_else(|error| error.into_inner());
+        env::remove_var("COOKIE_SECURE");
+        env::remove_var("COOKIE_DOMAIN");
+        env::remove_var("PUBLIC_APP_URL");
+        env::remove_var("PUBLIC_SITE_URL");
+
+        let cookie = session_cookie(ADMIN_SESSION_COOKIE, "session".to_owned());
+
+        assert_eq!(cookie.name(), ADMIN_SESSION_COOKIE);
+        assert_eq!(cookie.path(), Some("/"));
+        assert_eq!(cookie.http_only(), Some(true));
+        assert_eq!(cookie.secure(), Some(false));
+        assert_eq!(cookie.same_site(), Some(SameSite::Lax));
+        assert!(cookie.max_age().is_some());
+    }
+
+    #[test]
+    fn logout_removal_cookie_matches_session_cookie_scope() {
+        let _guard = ENV_LOCK.lock().unwrap_or_else(|error| error.into_inner());
+        env::remove_var("COOKIE_SECURE");
+        env::remove_var("COOKIE_DOMAIN");
+        env::remove_var("PUBLIC_APP_URL");
+        env::remove_var("PUBLIC_SITE_URL");
+
+        let cookie = remove_oauth_cookie(ADMIN_SESSION_COOKIE);
+
+        assert_eq!(cookie.name(), ADMIN_SESSION_COOKIE);
+        assert_eq!(cookie.path(), Some("/"));
+        assert_eq!(cookie.secure(), Some(false));
+        assert_eq!(cookie.same_site(), Some(SameSite::Lax));
+    }
+
+    #[test]
+    fn logout_route_redirects_to_configured_admin_url() {
+        let _guard = ENV_LOCK.lock().unwrap_or_else(|error| error.into_inner());
+        env::remove_var("COOKIE_SECURE");
+        env::remove_var("COOKIE_DOMAIN");
+        env::set_var("PUBLIC_APP_URL", "http://127.0.0.1:9001");
+
+        let client = auth_test_client();
+        let response = client.post("/auth/logout").dispatch();
+
+        assert_eq!(response.status(), Status::SeeOther);
+        assert_eq!(
+            response.headers().get_one("Location"),
+            Some("http://127.0.0.1:9001/admin")
+        );
+        env::remove_var("PUBLIC_APP_URL");
     }
 }
