@@ -7,18 +7,19 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
+mod seo;
+
 use anyhow::Context;
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
 use jsonwebtoken::{decode, decode_header, Algorithm, DecodingKey, Validation};
 use rand::{rngs::OsRng, RngCore};
 use rocket::{
     delete,
-    fs::{FileServer, NamedFile},
+    form::{Form, FromForm},
     get,
     http::{Cookie, CookieJar, HeaderMap, SameSite, Status},
     patch, post,
     request::{FromRequest, Outcome},
-    response::content::{RawText, RawXml},
     response::status,
     response::Redirect,
     routes,
@@ -103,19 +104,40 @@ struct Inquiry {
     name: String,
     email: String,
     phone: String,
+    preferred_contact_method: String,
+    city_or_zip: String,
     pet_name: String,
+    pet_age: String,
+    service_of_interest: String,
+    preferred_timeframe: String,
     message: String,
     #[serde(default = "default_inquiry_status")]
     status: String,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, FromForm)]
 struct NewInquiry {
     name: String,
     email: String,
+    #[serde(default)]
     phone: String,
+    #[serde(default)]
+    preferred_contact_method: String,
+    #[serde(default)]
+    city_or_zip: String,
+    #[serde(default)]
     pet_name: String,
+    #[serde(default)]
+    pet_age: String,
+    #[serde(default)]
+    service_of_interest: String,
+    #[serde(default)]
+    preferred_timeframe: String,
     message: String,
+    #[serde(default)]
+    consent_acknowledged: bool,
+    #[serde(default)]
+    website: String,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -240,56 +262,6 @@ fn health(store: &State<Store>) -> Json<Health> {
 #[get("/api/site")]
 fn site_content() -> Json<SiteContent> {
     Json(seed_content())
-}
-
-#[get("/robots.txt")]
-fn robots_txt() -> RawText<String> {
-    let body = if noindex_enabled() {
-        "User-agent: *\nDisallow: /\n".to_owned()
-    } else {
-        let sitemaps = public_site_urls()
-            .into_iter()
-            .map(|site_url| format!("Sitemap: {site_url}/sitemap.xml\n"))
-            .collect::<String>();
-        format!("User-agent: *\nAllow: /\n{sitemaps}")
-    };
-
-    RawText(body)
-}
-
-#[get("/robots")]
-fn robots() -> RawText<String> {
-    robots_txt()
-}
-
-#[get("/sitemap.xml")]
-fn sitemap_xml() -> RawXml<String> {
-    let site_urls = public_site_urls();
-    let paths = seo_paths();
-
-    let urls = site_urls
-        .iter()
-        .enumerate()
-        .flat_map(|(site_index, site_url)| {
-            paths.iter().map(move |path| {
-                let priority = if site_index == 0 {
-                    if path.as_str() == "/" { "1.0" } else { "0.8" }
-                } else if path.as_str() == "/" {
-                    "0.6"
-                } else {
-                    "0.5"
-                };
-
-                format!(
-                    "<url><loc>{site_url}{path}</loc><changefreq>monthly</changefreq><priority>{priority}</priority></url>"
-                )
-            })
-        })
-        .collect::<String>();
-
-    RawXml(format!(
-        r#"<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">{urls}</urlset>"#
-    ))
 }
 
 #[get("/auth/microsoft/login")]
@@ -501,7 +473,21 @@ async fn create_inquiry(
     store: &State<Store>,
     payload: Json<NewInquiry>,
 ) -> Result<status::Created<Json<Inquiry>>, status::Custom<String>> {
-    let new = payload.into_inner();
+    save_inquiry(store, payload.into_inner()).await
+}
+
+#[post("/api/inquiries", format = "form", data = "<payload>")]
+async fn create_inquiry_form(
+    store: &State<Store>,
+    payload: Form<NewInquiry>,
+) -> Result<status::Created<Json<Inquiry>>, status::Custom<String>> {
+    save_inquiry(store, payload.into_inner()).await
+}
+
+async fn save_inquiry(
+    store: &State<Store>,
+    new: NewInquiry,
+) -> Result<status::Created<Json<Inquiry>>, status::Custom<String>> {
     validate_inquiry(&new)?;
 
     let inquiry = Inquiry {
@@ -509,7 +495,12 @@ async fn create_inquiry(
         name: new.name.trim().to_owned(),
         email: new.email.trim().to_owned(),
         phone: new.phone.trim().to_owned(),
+        preferred_contact_method: normalize_optional(&new.preferred_contact_method),
+        city_or_zip: new.city_or_zip.trim().to_owned(),
         pet_name: new.pet_name.trim().to_owned(),
+        pet_age: normalize_optional(&new.pet_age),
+        service_of_interest: normalize_optional(&new.service_of_interest),
+        preferred_timeframe: normalize_optional(&new.preferred_timeframe),
         message: new.message.trim().to_owned(),
         status: default_inquiry_status(),
     };
@@ -628,11 +619,6 @@ fn auth_not_found() -> Status {
     Status::NotFound
 }
 
-#[get("/<_..>", rank = 20)]
-async fn spa_fallback() -> Option<NamedFile> {
-    frontend_index().await
-}
-
 #[rocket::main]
 async fn main() -> anyhow::Result<()> {
     load_dotenv_files();
@@ -649,8 +635,8 @@ async fn main() -> anyhow::Result<()> {
 fn build_rocket(store: Store) -> Rocket<Build> {
     rocket::build()
         .configure(Config {
-            address: IpAddr::V4(Ipv4Addr::UNSPECIFIED),
-            port: 9001,
+            address: rocket_address(),
+            port: rocket_port(),
             ..Config::debug_default()
         })
         .manage(store)
@@ -659,9 +645,10 @@ fn build_rocket(store: Store) -> Rocket<Build> {
             routes![
                 health,
                 site_content,
-                robots_txt,
-                robots,
-                sitemap_xml,
+                seo::home_page,
+                seo::robots_txt,
+                seo::robots,
+                seo::sitemap_xml,
                 microsoft_login,
                 microsoft_callback,
                 logout,
@@ -670,16 +657,26 @@ fn build_rocket(store: Store) -> Rocket<Build> {
                 update_inquiry_status,
                 delete_inquiry,
                 create_inquiry,
+                create_inquiry_form,
                 api_not_found,
                 auth_not_found,
-                spa_fallback
+                seo::marketing_page
             ],
         )
-        .mount("/", FileServer::from(static_dir()).rank(10))
 }
 
-async fn frontend_index() -> Option<NamedFile> {
-    NamedFile::open(static_dir().join("index.html")).await.ok()
+fn rocket_address() -> IpAddr {
+    env::var("ROCKET_ADDRESS")
+        .ok()
+        .and_then(|value| value.parse().ok())
+        .unwrap_or(IpAddr::V4(Ipv4Addr::LOCALHOST))
+}
+
+fn rocket_port() -> u16 {
+    env::var("ROCKET_PORT")
+        .ok()
+        .and_then(|value| value.parse().ok())
+        .unwrap_or(9001)
 }
 
 fn load_dotenv_files() {
@@ -1234,49 +1231,6 @@ fn log_oauth_event(event: &str, fields: &[(&str, &str)]) {
     eprintln!("oauth event={event} {details}");
 }
 
-fn public_site_urls() -> Vec<String> {
-    env::var("PUBLIC_SITE_URLS")
-        .or_else(|_| env::var("PUBLIC_SITE_URL"))
-        .unwrap_or_else(|_| "https://cooper-and-co.com,https://beta.cooper-and-co.com".to_owned())
-        .split(',')
-        .map(|url| url.trim().trim_end_matches('/').to_owned())
-        .filter(|url| !url.is_empty())
-        .collect()
-}
-
-fn seo_paths() -> Vec<String> {
-    [
-        "/",
-        "/services",
-        "/services/dog-walking",
-        "/services/dog-training",
-        "/services/pet-sitting",
-        "/services/house-sitting",
-        "/services/puppy-care",
-        "/services/dog-adventures",
-        "/service-area/mansfield-oh",
-        "/service-area/ontario-oh",
-        "/service-area/lexington-oh",
-        "/service-area/bellville-oh",
-        "/service-area/ashland-oh",
-        "/service-area/galion-oh",
-        "/resources",
-        "/resources/local-dog-walking-checklist",
-        "/resources/puppy-care-first-week",
-        "/resources/dog-adventure-safety",
-        "/contact",
-    ]
-    .into_iter()
-    .map(str::to_owned)
-    .collect()
-}
-
-fn noindex_enabled() -> bool {
-    env::var("COOPERCO_NOINDEX")
-        .map(|value| matches!(value.as_str(), "1" | "true" | "TRUE" | "yes" | "YES"))
-        .unwrap_or(false)
-}
-
 fn admin_email_allowed(email: &str) -> bool {
     env::var("ADMIN_ALLOWED_EMAILS")
         .ok()
@@ -1341,6 +1295,7 @@ fn validate_inquiry(inquiry: &NewInquiry) -> Result<(), status::Custom<String>> 
     let required = [
         ("name", inquiry.name.trim()),
         ("email", inquiry.email.trim()),
+        ("city_or_zip", inquiry.city_or_zip.trim()),
         ("message", inquiry.message.trim()),
     ];
 
@@ -1358,7 +1313,51 @@ fn validate_inquiry(inquiry: &NewInquiry) -> Result<(), status::Custom<String>> 
         ));
     }
 
+    if !inquiry.consent_acknowledged {
+        return Err(status::Custom(
+            Status::BadRequest,
+            "consent acknowledgment is required".to_owned(),
+        ));
+    }
+
+    if !inquiry.website.trim().is_empty() {
+        return Err(status::Custom(
+            Status::BadRequest,
+            "inquiry could not be accepted".to_owned(),
+        ));
+    }
+
+    let contact = inquiry.preferred_contact_method.trim();
+    if !contact.is_empty()
+        && !matches!(
+            contact.to_ascii_lowercase().as_str(),
+            "email" | "phone" | "text"
+        )
+    {
+        return Err(status::Custom(
+            Status::BadRequest,
+            "preferred contact method must be email, phone, or text".to_owned(),
+        ));
+    }
+
+    let service = inquiry.service_of_interest.trim();
+    if !service.is_empty()
+        && !matches!(
+            service.to_ascii_lowercase().as_str(),
+            "dog training" | "puppy training" | "group dog classes" | "not sure"
+        )
+    {
+        return Err(status::Custom(
+            Status::BadRequest,
+            "service of interest is not recognized".to_owned(),
+        ));
+    }
+
     Ok(())
+}
+
+fn normalize_optional(value: &str) -> String {
+    value.trim().to_owned()
 }
 
 fn default_inquiry_status() -> String {
@@ -1394,19 +1393,6 @@ fn auth_server_error(error: reqwest::Error) -> status::Custom<String> {
     };
 
     status::Custom(status, error.to_string())
-}
-
-fn static_dir() -> PathBuf {
-    if let Ok(path) = env::var("COOPERCO_STATIC_DIR") {
-        return PathBuf::from(path);
-    }
-
-    let from_workspace = PathBuf::from("frontend/dist");
-    if from_workspace.is_dir() {
-        return from_workspace;
-    }
-
-    PathBuf::from("../frontend/dist")
 }
 
 fn seed_content() -> SiteContent {
@@ -1508,7 +1494,7 @@ mod tests {
     }
 
     #[test]
-    fn rocket_serves_frontend_index_and_assets_without_trunk() {
+    fn rocket_serves_server_rendered_pages_and_assets_without_trunk() {
         let _guard = ENV_LOCK.lock().unwrap_or_else(|error| error.into_inner());
         let dir = env::temp_dir().join(format!("cooperco-static-test-{}", Uuid::new_v4()));
         fs::create_dir_all(dir.join("assets")).unwrap();
@@ -1522,11 +1508,16 @@ mod tests {
         let client = full_app_test_client(&dir);
         let index = client.get("/").dispatch();
         assert_eq!(index.status(), Status::Ok);
-        assert!(index.into_string().unwrap().contains("Cooper frontend"));
+        let index_html = index.into_string().unwrap();
+        assert!(index_html.contains("Cooper &amp; Co. dog training"));
+        assert!(index_html.contains(r#"<link rel="canonical" href="https://cooper-and-co.com/"#));
 
-        let fallback = client.get("/admin").dispatch();
-        assert_eq!(fallback.status(), Status::Ok);
-        assert!(fallback.into_string().unwrap().contains("Cooper frontend"));
+        let admin = client.get("/admin").dispatch();
+        assert_eq!(admin.status(), Status::Ok);
+        assert_eq!(
+            admin.headers().get_one("X-Robots-Tag"),
+            Some("noindex, nofollow")
+        );
 
         let asset = client.get("/assets/app.css").dispatch();
         assert_eq!(asset.status(), Status::Ok);
@@ -1559,7 +1550,7 @@ mod tests {
         );
         assert_eq!(
             client.get("/not-a-backend-route").dispatch().status(),
-            Status::Ok
+            Status::NotFound
         );
 
         env::remove_var("COOPERCO_STATIC_DIR");
@@ -1854,16 +1845,130 @@ mod tests {
     #[test]
     fn sitemap_includes_service_location_and_resource_pages() {
         let _guard = ENV_LOCK.lock().unwrap_or_else(|error| error.into_inner());
-        env::set_var("PUBLIC_SITE_URLS", "https://example.com");
 
-        let sitemap = sitemap_xml().0;
+        let sitemap = seo::sitemap_body();
 
-        assert!(sitemap.contains("https://example.com/services/dog-walking"));
-        assert!(sitemap.contains("https://example.com/services/dog-training"));
-        assert!(sitemap.contains("https://example.com/service-area/mansfield-oh"));
-        assert!(sitemap.contains("https://example.com/service-area/ashland-oh"));
-        assert!(sitemap.contains("https://example.com/resources/puppy-care-first-week"));
+        assert!(sitemap.contains("https://cooper-and-co.com/services/dog-training"));
+        assert!(sitemap.contains("https://cooper-and-co.com/services/puppy-training"));
+        assert!(sitemap.contains("https://cooper-and-co.com/service-areas/lorain-oh"));
+        assert!(sitemap.contains(
+            "https://cooper-and-co.com/resources/what-to-expect-from-a-group-dog-training-class"
+        ));
+        assert!(!sitemap.contains("beta.cooper-and-co.com"));
+        assert!(!sitemap.contains("/api/"));
+    }
 
-        env::remove_var("PUBLIC_SITE_URLS");
+    #[test]
+    fn every_indexable_route_returns_crawlable_html() {
+        let _guard = ENV_LOCK.lock().unwrap_or_else(|error| error.into_inner());
+        env::remove_var("COOPERCO_NOINDEX");
+        env::remove_var("PUBLIC_APP_URL");
+        let dir = env::temp_dir().join(format!("cooperco-public-route-test-{}", Uuid::new_v4()));
+        fs::create_dir_all(&dir).unwrap();
+        let client = full_app_test_client(&dir);
+
+        for path in seo::indexable_paths() {
+            let response = client.get(path.as_str()).dispatch();
+            assert_eq!(response.status(), Status::Ok, "{path}");
+            let body = response.into_string().unwrap();
+            assert!(body.contains("<title>"), "{path}");
+            assert!(body.contains(r#"<meta name="description""#), "{path}");
+            assert!(
+                body.contains(r#"<link rel="canonical" href="https://cooper-and-co.com"#),
+                "{path}"
+            );
+            assert!(
+                body.contains(r#"<meta name="robots" content="index, follow"#),
+                "{path}"
+            );
+            assert_eq!(body.matches("<h1").count(), 1, "{path}");
+            assert!(body.contains(r#"application/ld+json"#), "{path}");
+            assert!(body.contains("/contact"), "{path}");
+        }
+
+        env::remove_var("COOPERCO_STATIC_DIR");
+        fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn obsolete_routes_redirect_or_return_gone() {
+        let _guard = ENV_LOCK.lock().unwrap_or_else(|error| error.into_inner());
+        let dir = env::temp_dir().join(format!("cooperco-obsolete-route-test-{}", Uuid::new_v4()));
+        fs::create_dir_all(&dir).unwrap();
+        let client = full_app_test_client(&dir);
+
+        let redirected = client.get("/service-area/mansfield-oh").dispatch();
+        assert_eq!(redirected.status(), Status::PermanentRedirect);
+        assert_eq!(
+            redirected.headers().get_one("Location"),
+            Some("/service-areas")
+        );
+
+        let gone = client.get("/services/pet-sitting").dispatch();
+        assert_eq!(gone.status(), Status::Gone);
+
+        env::remove_var("COOPERCO_STATIC_DIR");
+        fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn staging_public_routes_send_noindex_header() {
+        let _guard = ENV_LOCK.lock().unwrap_or_else(|error| error.into_inner());
+        env::set_var("COOPERCO_NOINDEX", "true");
+        let dir = env::temp_dir().join(format!("cooperco-staging-route-test-{}", Uuid::new_v4()));
+        fs::create_dir_all(&dir).unwrap();
+        let client = full_app_test_client(&dir);
+
+        let response = client.get("/services/dog-training").dispatch();
+        assert_eq!(response.status(), Status::Ok);
+        assert_eq!(
+            response.headers().get_one("X-Robots-Tag"),
+            Some("noindex, nofollow")
+        );
+        assert!(response
+            .into_string()
+            .unwrap()
+            .contains(r#"<meta name="robots" content="noindex, nofollow">"#));
+
+        env::remove_var("COOPERCO_NOINDEX");
+        env::remove_var("COOPERCO_STATIC_DIR");
+        fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn contact_form_validation_requires_consent_city_and_clean_honeypot() {
+        let valid = NewInquiry {
+            name: "Customer".to_owned(),
+            email: "customer@example.test".to_owned(),
+            phone: "4405550100".to_owned(),
+            preferred_contact_method: "email".to_owned(),
+            city_or_zip: "Lorain".to_owned(),
+            pet_name: "Cooper".to_owned(),
+            pet_age: "2".to_owned(),
+            service_of_interest: "dog training".to_owned(),
+            preferred_timeframe: "next month".to_owned(),
+            message: "We want help with leash skills.".to_owned(),
+            consent_acknowledged: true,
+            website: String::new(),
+        };
+        assert!(validate_inquiry(&valid).is_ok());
+
+        let mut missing_city = valid.clone();
+        missing_city.city_or_zip.clear();
+        assert_eq!(
+            validate_inquiry(&missing_city).unwrap_err().0,
+            Status::BadRequest
+        );
+
+        let mut no_consent = valid.clone();
+        no_consent.consent_acknowledged = false;
+        assert_eq!(
+            validate_inquiry(&no_consent).unwrap_err().0,
+            Status::BadRequest
+        );
+
+        let mut spam = valid;
+        spam.website = "https://spam.example".to_owned();
+        assert_eq!(validate_inquiry(&spam).unwrap_err().0, Status::BadRequest);
     }
 }

@@ -1,0 +1,97 @@
+[business]
+name = "Cooper & Co."
+home_city = "Lorain"
+state = "Ohio"
+county = "Lorain County"
+phone = "(440) 276-1716"
+phone_e164 = "+14402761716"
+email = "cooper.copetservices@gmail.com"
+public_address = ""
+public_address_status = "requires_owner_confirmation"
+facebook_url = "https://www.facebook.com/CooperAndCoPet"
+yelp_url = "https://m.yelp.com/biz/cooper-and-company-elyria"
+
+[[services]]
+slug = "dog-training"
+name = "Dog training"
+status = "confirmed_by_repository_evidence"
+
+[[services]]
+slug = "puppy-training"
+name = "Puppy training"
+status = "confirmed_by_repository_evidence"
+
+[[services]]
+slug = "group-dog-classes"
+name = "Group dog classes"
+status = "confirmed_by_repository_evidence"
+
+[[service_areas]]
+slug = "lorain-oh"
+name = "Lorain, OH"
+status = "Confirmed"
+
+[[service_areas]]
+slug = "elyria-oh"
+name = "Elyria, OH"
+status = "Unconfirmed"
+
+[[service_areas]]
+slug = "amherst-oh"
+name = "Amherst, OH"
+status = "Unconfirmed"
+
+[[service_areas]]
+slug = "sheffield-lake-oh"
+name = "Sheffield Lake, OH"
+status = "Unconfirmed"
+
+[[service_areas]]
+slug = "sheffield-village-oh"
+name = "Sheffield Village, OH"
+status = "Unconfirmed"
+
+[[service_areas]]
+slug = "avon-oh"
+name = "Avon, OH"
+status = "Unconfirmed"
+
+[[service_areas]]
+slug = "avon-lake-oh"
+name = "Avon Lake, OH"
+status = "Unconfirmed"
+
+[[service_areas]]
+slug = "north-ridgeville-oh"
+name = "North Ridgeville, OH"
+status = "Unconfirmed"
+
+[[service_areas]]
+slug = "oberlin-oh"
+name = "Oberlin, OH"
+status = "Unconfirmed"
+
+[[service_areas]]
+slug = "vermilion-oh"
+name = "Vermilion, OH"
+status = "Unconfirmed"
+
+[owner_confirmation_required]
+exact_confirmed_services = true
+exact_service_area_cities = true
+service_radius = true
+public_address_policy = true
+hours = true
+pricing_policy = true
+booking_process = true
+credentials = true
+insurance_or_bonding_status = true
+training_methodology = true
+age_or_vaccination_requirements = true
+class_capacity = true
+cancellation_policy = true
+real_testimonials = true
+approved_photographs = true
+social_profile_urls = true
+google_business_profile_url = true
+emergency_and_safety_procedures = true

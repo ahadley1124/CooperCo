@@ -4,51 +4,20 @@ use wasm_bindgen_futures::spawn_local;
 use web_sys::{HtmlInputElement, HtmlTextAreaElement};
 use yew::prelude::*;
 
-#[derive(Clone, Debug, PartialEq, Deserialize)]
-struct SiteContent {
-    business: Business,
-    stats: Vec<Stat>,
-    services: Vec<Service>,
-    updates: Vec<Update>,
-    gallery: Vec<GalleryImage>,
-}
-
-#[derive(Clone, Debug, PartialEq, Deserialize)]
-struct Business {
+#[derive(Clone, Debug, Default, Serialize)]
+struct InquiryForm {
     name: String,
-    category: String,
-    location: String,
-    phone: String,
     email: String,
-    facebook_url: String,
-    yelp_url: String,
-    intro: String,
-    hero_image: String,
-}
-
-#[derive(Clone, Debug, PartialEq, Deserialize)]
-struct Stat {
-    label: String,
-    value: String,
-}
-
-#[derive(Clone, Debug, PartialEq, Deserialize)]
-struct Service {
-    title: String,
-    summary: String,
-}
-
-#[derive(Clone, Debug, PartialEq, Deserialize)]
-struct Update {
-    title: String,
-    summary: String,
-    source_label: String,
-}
-
-#[derive(Clone, Debug, PartialEq, Deserialize)]
-struct GalleryImage {
-    src: String,
-    alt: String,
+    phone: String,
+    preferred_contact_method: String,
+    city_or_zip: String,
+    pet_name: String,
+    pet_age: String,
+    service_of_interest: String,
+    preferred_timeframe: String,
+    message: String,
+    consent_acknowledged: bool,
+    website: String,
 }
 
 #[derive(Clone, Debug, PartialEq, Deserialize)]
@@ -63,273 +32,351 @@ struct Inquiry {
     name: String,
     email: String,
     phone: String,
+    preferred_contact_method: String,
+    city_or_zip: String,
     pet_name: String,
+    pet_age: String,
+    service_of_interest: String,
+    preferred_timeframe: String,
     message: String,
     status: String,
 }
 
-#[derive(Clone, Debug, Serialize)]
-struct InquiryStatusUpdate {
-    status: String,
-}
-
-#[derive(Clone, Debug, Default, Serialize)]
-struct InquiryForm {
-    name: String,
-    email: String,
-    phone: String,
-    pet_name: String,
-    message: String,
-}
-
-#[derive(Clone, Debug, PartialEq, Properties)]
-struct PublicPageProps {
-    route: PublicRoute,
-}
-
-#[derive(Clone, Copy)]
-struct SeoService {
-    slug: &'static str,
-    name: &'static str,
-    summary: &'static str,
-    title: &'static str,
-}
-
-#[derive(Clone, Copy)]
-struct SeoLocation {
-    slug: &'static str,
-    name: &'static str,
-    county_hint: &'static str,
-}
-
-#[derive(Clone, Copy)]
-struct FaqItem {
-    question: &'static str,
-    answer: &'static str,
-}
-
-#[derive(Clone, Copy)]
-struct ResourcePost {
-    slug: &'static str,
-    title: &'static str,
-    summary: &'static str,
-    category: &'static str,
-    sections: &'static [&'static str],
-}
-
-const SEO_SERVICES: &[SeoService] = &[
-    SeoService {
-        slug: "dog-walking",
-        name: "Dog walking",
-        summary: "Structured dog walking inquiry pages with schedule, leash, and neighborhood notes ready for owner-confirmed details.",
-        title: "Dog Walking",
-    },
-    SeoService {
-        slug: "dog-training",
-        name: "Dog training",
-        summary: "Dog training inquiry pages for goals, behavior notes, puppy basics, and current availability questions.",
-        title: "Dog Training",
-    },
-    SeoService {
-        slug: "pet-sitting",
-        name: "Pet sitting",
-        summary: "Pet sitting inquiry pages with feeding, medication, routine, and visit detail placeholders.",
-        title: "Pet Sitting",
-    },
-    SeoService {
-        slug: "house-sitting",
-        name: "House sitting",
-        summary: "House sitting inquiry pages for pet routines, home access, plant/mail notes, and overnight fit.",
-        title: "House Sitting",
-    },
-    SeoService {
-        slug: "puppy-care",
-        name: "Puppy care",
-        summary: "Puppy care inquiry pages for potty breaks, crate routines, socialization, and young-dog schedule needs.",
-        title: "Puppy Care",
-    },
-    SeoService {
-        slug: "dog-adventures",
-        name: "Dog adventures",
-        summary: "Dog adventure inquiry pages for enrichment walks, outings, transportation notes, and safety fit.",
-        title: "Dog Adventures",
-    },
-];
-
-const SEO_LOCATIONS: &[SeoLocation] = &[
-    SeoLocation {
-        slug: "mansfield-oh",
-        name: "Mansfield, OH",
-        county_hint: "Richland County",
-    },
-    SeoLocation {
-        slug: "ontario-oh",
-        name: "Ontario, OH",
-        county_hint: "Richland County",
-    },
-    SeoLocation {
-        slug: "lexington-oh",
-        name: "Lexington, OH",
-        county_hint: "Richland County",
-    },
-    SeoLocation {
-        slug: "bellville-oh",
-        name: "Bellville, OH",
-        county_hint: "Richland County",
-    },
-    SeoLocation {
-        slug: "ashland-oh",
-        name: "Ashland, OH",
-        county_hint: "Ashland County",
-    },
-    SeoLocation {
-        slug: "galion-oh",
-        name: "Galion, OH",
-        county_hint: "Crawford/Richland County area",
-    },
-];
-
-const SERVICE_FAQS: &[FaqItem] = &[
-    FaqItem {
-        question: "How do I confirm current availability?",
-        answer: "Use the contact form or call Cooper & Co. with your city, pet details, dates, and service goals. TODO: owner should add current booking windows.",
-    },
-    FaqItem {
-        question: "Are prices listed online?",
-        answer: "Pricing is intentionally owner-confirmed because service length, travel, pet needs, and schedule affect fit.",
-    },
-    FaqItem {
-        question: "What details should I include?",
-        answer: "Share your dog's age, temperament, routine, location, desired dates, and any training or care concerns.",
-    },
-];
-
-const RESOURCE_POSTS: &[ResourcePost] = &[
-    ResourcePost {
-        slug: "local-dog-walking-checklist",
-        title: "Local Dog Walking Checklist",
-        summary: "A starter checklist for sharing dog walking routines, leash notes, route preferences, and safety needs.",
-        category: "Dog walking",
-        sections: &[
-            "Current walk schedule and preferred times",
-            "Leash, harness, reactivity, and weather notes",
-            "Neighborhood, parking, and access details",
-            "TODO owner input: add Cooper & Co. walking policies and service radius",
-        ],
-    },
-    ResourcePost {
-        slug: "puppy-care-first-week",
-        title: "Puppy Care First Week Notes",
-        summary: "A local puppy-care planning article template for potty breaks, crate routines, feeding, and early manners.",
-        category: "Puppy care",
-        sections: &[
-            "Potty-break cadence and accident cleanup preferences",
-            "Feeding, water, nap, and crate routine",
-            "Early socialization and handling notes",
-            "TODO owner input: add age requirements and puppy-care availability",
-        ],
-    },
-    ResourcePost {
-        slug: "dog-adventure-safety",
-        title: "Dog Adventure Safety Questions",
-        summary: "A dog adventure fit checklist for enrichment outings, transport notes, weather, temperament, and recall needs.",
-        category: "Dog adventures",
-        sections: &[
-            "Temperament, leash skills, and outing comfort",
-            "Transportation, emergency contact, and vet details",
-            "Weather, hydration, tick prevention, and terrain notes",
-            "TODO owner input: add adventure locations and safety policies",
-        ],
-    },
-];
-
-#[function_component(App)]
-fn app() -> Html {
-    match current_route() {
-        AppRoute::Admin => html! { <AdminPage /> },
-        AppRoute::Public(route) => html! { <PublicPage route={route} /> },
-    }
-}
-
-enum AppRoute {
-    Admin,
-    Public(PublicRoute),
-}
-
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum PublicRoute {
     Home,
+    About,
     Services,
-    Service(String),
-    Location(String),
+    DogTraining,
+    PuppyTraining,
+    GroupDogClasses,
+    ServiceAreas,
+    LorainArea,
     Resources,
-    Resource(String),
+    Resource(&'static str),
     Contact,
+    Faq,
+    Privacy,
+    Accessibility,
     NotFound,
 }
 
-fn current_route() -> AppRoute {
-    let path = web_sys::window()
-        .and_then(|window| window.location().pathname().ok())
-        .unwrap_or_default();
-
-    if path.trim_end_matches('/') == "/admin" {
-        AppRoute::Admin
+#[function_component(App)]
+fn app() -> Html {
+    if current_path().trim_end_matches('/') == "/admin" {
+        html! { <AdminPage /> }
     } else {
-        AppRoute::Public(public_route(&path))
+        html! { <PublicPage route={public_route(&current_path())} /> }
     }
 }
 
+fn current_path() -> String {
+    web_sys::window()
+        .and_then(|window| window.location().pathname().ok())
+        .unwrap_or_else(|| "/".to_owned())
+}
+
 fn public_route(path: &str) -> PublicRoute {
-    let normalized = path.trim_end_matches('/');
-    if normalized.is_empty() || normalized == "/" {
-        PublicRoute::Home
-    } else if normalized == "/services" {
-        PublicRoute::Services
-    } else if normalized == "/resources" {
-        PublicRoute::Resources
-    } else if normalized == "/contact" {
-        PublicRoute::Contact
-    } else if let Some(slug) = normalized.strip_prefix("/services/") {
-        PublicRoute::Service(slug.to_owned())
-    } else if let Some(slug) = normalized.strip_prefix("/service-area/") {
-        PublicRoute::Location(slug.to_owned())
-    } else if let Some(slug) = normalized.strip_prefix("/resources/") {
-        PublicRoute::Resource(slug.to_owned())
-    } else {
-        PublicRoute::NotFound
+    match path.trim_end_matches('/') {
+        "" | "/" => PublicRoute::Home,
+        "/about" => PublicRoute::About,
+        "/services" => PublicRoute::Services,
+        "/services/dog-training" => PublicRoute::DogTraining,
+        "/services/puppy-training" => PublicRoute::PuppyTraining,
+        "/services/group-dog-classes" => PublicRoute::GroupDogClasses,
+        "/service-areas" => PublicRoute::ServiceAreas,
+        "/service-areas/lorain-oh" => PublicRoute::LorainArea,
+        "/resources" => PublicRoute::Resources,
+        "/contact" => PublicRoute::Contact,
+        "/faq" => PublicRoute::Faq,
+        "/privacy" => PublicRoute::Privacy,
+        "/accessibility" => PublicRoute::Accessibility,
+        other => other
+            .strip_prefix("/resources/")
+            .and_then(resource_title)
+            .map(PublicRoute::Resource)
+            .unwrap_or(PublicRoute::NotFound),
     }
 }
 
 #[function_component(PublicPage)]
 fn public_page(props: &PublicPageProps) -> Html {
-    let content = use_state(|| Some(seed_content()));
-    let load_error = use_state(|| None::<String>);
-    let form = use_state(InquiryForm::default);
-    let submit_state = use_state(|| "idle".to_owned());
-
-    {
-        let content = content.clone();
-        let load_error = load_error.clone();
-        use_effect_with((), move |_| {
-            spawn_local(async move {
-                match Request::get("/api/site").send().await {
-                    Ok(response) if response.ok() => match response.json::<SiteContent>().await {
-                        Ok(site) => content.set(Some(site)),
-                        Err(error) => load_error.set(Some(error.to_string())),
-                    },
-                    Ok(response) => load_error.set(Some(format!(
-                        "Content request failed with status {}",
-                        response.status()
-                    ))),
-                    Err(error) => load_error.set(Some(error.to_string())),
-                }
-            });
-            || ()
-        });
+    set_page_title(props.route);
+    html! {
+        <>
+            <a class="skip-link" href="#content">{"Skip to content"}</a>
+            <Header />
+            <main id="content">
+                {match props.route {
+                    PublicRoute::Home => home_page(),
+                    PublicRoute::About => simple_page("About Cooper & Co.", "Cooper & Co. is based in Lorain, Ohio. Owner-approved credentials, hours, pricing, policies, and testimonials should be added when confirmed."),
+                    PublicRoute::Services => services_page(),
+                    PublicRoute::DogTraining => service_page("Dog training", "Dog training inquiries can cover leash manners, focus, everyday skills, and class fit."),
+                    PublicRoute::PuppyTraining => service_page("Puppy training", "Puppy training inquiries focus on early manners, confidence, routines, and age-appropriate class readiness."),
+                    PublicRoute::GroupDogClasses => service_page("Group dog classes", "Group dog class inquiries help determine class fit, preparation, and current availability."),
+                    PublicRoute::ServiceAreas => service_areas_page(),
+                    PublicRoute::LorainArea => simple_page("Dog training in Lorain, OH", "Lorain is the confirmed home-city service-area page. Ask directly about nearby communities."),
+                    PublicRoute::Resources => resources_page(),
+                    PublicRoute::Resource(title) => resource_article_page(title),
+                    PublicRoute::Contact => html! { <ContactSection title="Contact Cooper & Co." /> },
+                    PublicRoute::Faq => faq_page(),
+                    PublicRoute::Privacy => simple_page("Privacy policy", "The inquiry form collects contact and pet-service details so Cooper & Co. can respond. Do not submit emergency, financial, or private medical information."),
+                    PublicRoute::Accessibility => simple_page("Accessibility statement", "This site aims to provide semantic headings, keyboard-friendly navigation, visible focus states, and readable forms."),
+                    PublicRoute::NotFound => simple_page("This Cooper & Co. page was not found", "Use the current service, resource, or contact links to continue."),
+                }}
+            </main>
+            <Footer />
+        </>
     }
+}
 
-    let update_field = {
+#[derive(Clone, Copy, PartialEq, Properties)]
+struct PublicPageProps {
+    route: PublicRoute,
+}
+
+#[function_component(Header)]
+fn header() -> Html {
+    html! {
+        <header class="topbar">
+            <a class="brand" href="/" aria-label="Cooper and Co home">
+                <span class="brand-mark" aria-hidden="true">{"C&Co"}</span>
+                <span>{"Cooper & Co."}</span>
+            </a>
+            <nav aria-label="Main navigation">
+                <a href="/about">{"About"}</a>
+                <a href="/services">{"Services"}</a>
+                <a href="/service-areas">{"Service areas"}</a>
+                <a href="/resources">{"Resources"}</a>
+                <a href="/faq">{"FAQ"}</a>
+                <a href="/contact">{"Contact"}</a>
+            </nav>
+        </header>
+    }
+}
+
+#[function_component(Footer)]
+fn footer() -> Html {
+    html! {
+        <footer>
+            <span>{"Cooper & Co. · Lorain, Ohio · "}<a href="tel:+14402761716">{"(440) 276-1716"}</a></span>
+            <a href="/privacy">{"Privacy"}</a>
+            <a href="/accessibility">{"Accessibility"}</a>
+            <a href="https://www.facebook.com/CooperAndCoPet" rel="noreferrer">{"Facebook"}</a>
+        </footer>
+    }
+}
+
+fn home_page() -> Html {
+    html! {
+        <>
+            <section class="hero" aria-labelledby="home-title">
+                <picture class="hero-media">
+                    <source srcset="/assets/cooperco-pet-services-hero.avif" type="image/avif" />
+                    <img class="hero-image" src="/assets/cooperco-pet-services-hero.webp" alt="Cooper & Co. dog training and pet service branding" width="1600" height="900" fetchpriority="high" decoding="async" />
+                </picture>
+                <div class="hero-copy">
+                    <p class="eyebrow">{"Pet service based in Lorain, Ohio"}</p>
+                    <h1 id="home-title">{"Cooper & Co. dog training and pet services in Lorain, Ohio"}</h1>
+                    <p>{"Cooper & Co. is based in Lorain and serves pet owners across Lorain County and nearby communities. Ask about dog training, puppy training, and group dog classes."}</p>
+                    <div class="hero-actions">
+                        <a class="button primary" href="/contact">{"Request information"}</a>
+                        <a class="button secondary" href="tel:+14402761716">{"(440) 276-1716"}</a>
+                    </div>
+                </div>
+            </section>
+            <section class="section" aria-labelledby="home-services-title">
+                <div class="section-heading">
+                    <p class="eyebrow">{"Services"}</p>
+                    <h2 id="home-services-title">{"Confirmed service pages"}</h2>
+                    <p>{"These are the current public service pages supported by repository evidence."}</p>
+                </div>
+                <div class="service-grid">
+                    <article class="card"><h3><a href="/services/dog-training">{"Dog training"}</a></h3><p>{"Everyday training goals, leash manners, focus, and class-fit questions."}</p></article>
+                    <article class="card"><h3><a href="/services/puppy-training">{"Puppy training"}</a></h3><p>{"Early manners, confidence building, routines, and puppy class preparation."}</p></article>
+                    <article class="card"><h3><a href="/services/group-dog-classes">{"Group dog classes"}</a></h3><p>{"Class readiness, preparation, and current availability inquiries."}</p></article>
+                </div>
+            </section>
+            <section class="section split" aria-labelledby="process-title">
+                <div>
+                    <p class="eyebrow">{"Process"}</p>
+                    <h2 id="process-title">{"Start with a clear inquiry"}</h2>
+                    <p>{"Share your city or ZIP code, pet age, goals, service interest, and preferred timeframe so Cooper & Co. can confirm fit."}</p>
+                </div>
+                <article class="update">
+                    <span>{"Owner-confirmed facts"}</span>
+                    <h3>{"No unsupported claims"}</h3>
+                    <p>{"Hours, prices, service radius, credentials, testimonials, and requirements should be published only after owner approval."}</p>
+                </article>
+            </section>
+            <ContactSection title="Ask about training or classes" />
+        </>
+    }
+}
+
+fn services_page() -> Html {
+    html! {
+        <section class="section" aria-labelledby="services-title">
+            <div class="section-heading">
+                <p class="eyebrow">{"Services"}</p>
+                <h1 id="services-title">{"Dog training services from Cooper & Co."}</h1>
+                <p>{"These are the current public service pages supported by repository evidence."}</p>
+            </div>
+            <div class="service-grid">
+                <article class="card"><h3><a href="/services/dog-training">{"Dog training"}</a></h3><p>{"Everyday training goals, leash manners, focus, and class-fit questions."}</p></article>
+                <article class="card"><h3><a href="/services/puppy-training">{"Puppy training"}</a></h3><p>{"Early manners, confidence building, routines, and puppy class preparation."}</p></article>
+                <article class="card"><h3><a href="/services/group-dog-classes">{"Group dog classes"}</a></h3><p>{"Class readiness, preparation, and current availability inquiries."}</p></article>
+            </div>
+        </section>
+    }
+}
+
+fn service_page(title: &str, copy: &str) -> Html {
+    html! {
+        <>
+            <section class="section page-hero" aria-labelledby="service-title">
+                <p class="eyebrow">{"Service"}</p>
+                <h1 id="service-title">{title}</h1>
+                <p>{copy}</p>
+                <div class="hero-actions">
+                    <a class="button primary" href="/contact">{"Request information"}</a>
+                    <a class="button secondary on-light" href="tel:+14402761716">{"(440) 276-1716"}</a>
+                </div>
+            </section>
+            <section class="section" aria-labelledby="service-details">
+                <div class="section-heading">
+                    <p class="eyebrow">{"Details"}</p>
+                    <h2 id="service-details">{"What to include"}</h2>
+                    <p>{"Send your dog details, goals, city or ZIP code, health or safety notes, and scheduling preferences."}</p>
+                </div>
+            </section>
+            <ContactSection title="Ask about this service" />
+        </>
+    }
+}
+
+fn service_areas_page() -> Html {
+    html! {
+        <section class="section page-hero" aria-labelledby="areas-title">
+            <p class="eyebrow">{"Service areas"}</p>
+            <h1 id="areas-title">{"Cooper & Co. service areas"}</h1>
+            <p>{"Cooper & Co. is based in Lorain, Ohio. Additional nearby communities are stored as candidates until the owner confirms active coverage."}</p>
+            <div class="service-grid">
+                <article class="card"><h3><a href="/service-areas/lorain-oh">{"Lorain, OH"}</a></h3><p>{"Confirmed home-city service-area page."}</p></article>
+                <article class="card"><h3>{"Nearby communities"}</h3><p>{"Ask directly about current availability in your city or ZIP code."}</p></article>
+            </div>
+        </section>
+    }
+}
+
+fn resources_page() -> Html {
+    html! {
+        <section class="section page-hero" aria-labelledby="resources-title">
+            <p class="eyebrow">{"Resources"}</p>
+            <h1 id="resources-title">{"Dog training resources"}</h1>
+            <p>{"Read practical training and class-preparation articles. Medical concerns should be directed to a qualified veterinarian."}</p>
+            <div class="service-grid">
+                <article class="card"><h3><a href="/resources/what-to-expect-from-a-group-dog-training-class">{"What to Expect From a Group Dog Training Class"}</a></h3><p>{"Class structure, preparation, and expectations."}</p></article>
+                <article class="card"><h3><a href="/resources/preparing-your-puppy-for-its-first-training-class">{"Preparing Your Puppy for Its First Training Class"}</a></h3><p>{"Puppy comfort, packing, and health-aware planning."}</p></article>
+                <article class="card"><h3><a href="/resources/basic-leash-skills-to-practice-at-home">{"Basic Leash Skills to Practice at Home"}</a></h3><p>{"Simple leash and focus ideas before asking about training."}</p></article>
+            </div>
+        </section>
+    }
+}
+
+fn resource_title(slug: &str) -> Option<&'static str> {
+    match slug {
+        "what-to-expect-from-a-group-dog-training-class" => {
+            Some("What to Expect From a Group Dog Training Class")
+        }
+        "preparing-your-puppy-for-its-first-training-class" => {
+            Some("Preparing Your Puppy for Its First Training Class")
+        }
+        "basic-leash-skills-to-practice-at-home" => Some("Basic Leash Skills to Practice at Home"),
+        "how-to-choose-a-dog-trainer-in-lorain-county" => {
+            Some("How to Choose a Dog Trainer in Lorain County")
+        }
+        "questions-to-ask-before-joining-a-group-dog-class" => {
+            Some("Questions to Ask Before Joining a Group Dog Class")
+        }
+        "puppy-socialization-without-overwhelming-your-puppy" => {
+            Some("Puppy Socialization Without Overwhelming Your Puppy")
+        }
+        "helping-a-dog-stay-focused-around-distractions" => {
+            Some("Helping a Dog Stay Focused Around Distractions")
+        }
+        "what-to-bring-to-a-dog-training-class" => Some("What to Bring to a Dog Training Class"),
+        "dog-training-goals-how-to-set-realistic-expectations" => {
+            Some("Dog Training Goals: How to Set Realistic Expectations")
+        }
+        "indoor-dog-enrichment-ideas-for-ohio-winters" => {
+            Some("Indoor Dog-Enrichment Ideas for Ohio Winters")
+        }
+        _ => None,
+    }
+}
+
+fn resource_article_page(title: &str) -> Html {
+    html! {
+        <>
+            <article class="section page-hero resource-article" aria-labelledby="article-title">
+                <p class="eyebrow">{"Cooper & Co. Resource"}</p>
+                <h1 id="article-title">{title}</h1>
+                <p>{"This resource helps dog owners prepare thoughtful questions before contacting Cooper & Co. For medical concerns, consult a qualified veterinarian."}</p>
+                <div class="article-body">
+                    <h2>{"Planning notes"}</h2>
+                    <p>{"Use the article to think through your dog's age, comfort level, goals, safety notes, and what you want to practice."}</p>
+                    <h2>{"Next step"}</h2>
+                    <p>{"Share your city or ZIP code, service interest, and goals when you contact Cooper & Co."}</p>
+                </div>
+                <div class="hero-actions">
+                    <a class="button primary" href="/contact">{"Contact Cooper & Co."}</a>
+                    <a class="button secondary on-light" href="/resources">{"All resources"}</a>
+                </div>
+            </article>
+        </>
+    }
+}
+
+fn faq_page() -> Html {
+    html! {
+        <section class="section faq" aria-labelledby="faq-title">
+            <div class="section-heading">
+                <p class="eyebrow">{"FAQ"}</p>
+                <h1 id="faq-title">{"Cooper & Co. questions"}</h1>
+            </div>
+            <details open=true><summary>{"Where is Cooper & Co. based?"}</summary><p>{"Cooper & Co. is based in Lorain, Ohio."}</p></details>
+            <details><summary>{"Which services are published?"}</summary><p>{"Dog training, puppy training, and group dog classes."}</p></details>
+            <details><summary>{"Are hours or prices published?"}</summary><p>{"Hours and prices require owner confirmation before they can be published as fixed website claims."}</p></details>
+        </section>
+    }
+}
+
+fn simple_page(title: &str, copy: &str) -> Html {
+    html! {
+        <section class="section page-hero" aria-labelledby="simple-title">
+            <p class="eyebrow">{"Cooper & Co."}</p>
+            <h1 id="simple-title">{title}</h1>
+            <p>{copy}</p>
+            <div class="hero-actions">
+                <a class="button primary" href="/contact">{"Contact"}</a>
+                <a class="button secondary on-light" href="/services">{"View services"}</a>
+            </div>
+        </section>
+    }
+}
+
+#[derive(Clone, PartialEq, Properties)]
+struct ContactProps {
+    title: &'static str,
+}
+
+#[function_component(ContactSection)]
+fn contact_section(props: &ContactProps) -> Html {
+    let form = use_state(InquiryForm::default);
+    let status = use_state(|| "idle".to_owned());
+
+    let input_handler = {
         let form = form.clone();
         move |field: &'static str| {
             let form = form.clone();
@@ -343,14 +390,19 @@ fn public_page(props: &PublicPageProps) -> Html {
                             .map(|textarea| textarea.value())
                     })
                     .unwrap_or_default();
-
                 let mut next = (*form).clone();
                 match field {
                     "name" => next.name = value,
                     "email" => next.email = value,
                     "phone" => next.phone = value,
+                    "preferred_contact_method" => next.preferred_contact_method = value,
+                    "city_or_zip" => next.city_or_zip = value,
                     "pet_name" => next.pet_name = value,
+                    "pet_age" => next.pet_age = value,
+                    "service_of_interest" => next.service_of_interest = value,
+                    "preferred_timeframe" => next.preferred_timeframe = value,
                     "message" => next.message = value,
+                    "website" => next.website = value,
                     _ => {}
                 }
                 form.set(next);
@@ -358,697 +410,111 @@ fn public_page(props: &PublicPageProps) -> Html {
         }
     };
 
+    let consent_handler = {
+        let form = form.clone();
+        Callback::from(move |event: Event| {
+            let checked = event
+                .target_dyn_into::<HtmlInputElement>()
+                .map(|input| input.checked())
+                .unwrap_or(false);
+            let mut next = (*form).clone();
+            next.consent_acknowledged = checked;
+            form.set(next);
+        })
+    };
+
     let onsubmit = {
         let form = form.clone();
-        let submit_state = submit_state.clone();
+        let status = status.clone();
         Callback::from(move |event: SubmitEvent| {
             event.prevent_default();
             let payload = (*form).clone();
             let form = form.clone();
-            let submit_state = submit_state.clone();
-
-            submit_state.set("sending".to_owned());
+            let status = status.clone();
+            status.set("sending".to_owned());
             spawn_local(async move {
-                let builder =
-                    Request::post("/api/inquiries").header("Content-Type", "application/json");
-                let request = match builder.json(&payload) {
-                    Ok(request) => request,
-                    Err(error) => {
-                        submit_state.set(format!("Could not prepare inquiry: {error}"));
-                        return;
-                    }
+                let request = Request::post("/api/inquiries")
+                    .header("Content-Type", "application/json")
+                    .json(&payload);
+                let Ok(request) = request else {
+                    status.set("Could not prepare inquiry.".to_owned());
+                    return;
                 };
-
                 match request.send().await {
                     Ok(response) if response.ok() => {
                         form.set(InquiryForm::default());
-                        submit_state.set("sent".to_owned());
+                        status.set("sent".to_owned());
                     }
-                    Ok(response) => submit_state.set(format!(
-                        "Please check the form. Status {}",
-                        response.status()
-                    )),
-                    Err(error) => submit_state.set(format!("Could not send inquiry: {error}")),
+                    Ok(response) => {
+                        status.set(format!(
+                            "Please check the form. Status {}.",
+                            response.status()
+                        ));
+                    }
+                    Err(error) => {
+                        status.set(format!("Could not send inquiry: {error}"));
+                    }
                 }
             });
         })
     };
 
-    let Some(site) = (*content).clone() else {
-        return html! {
-            <div class="loading">
-                <div class="mark">{"C&Co"}</div>
-                <p>{load_error.as_ref().cloned().unwrap_or_else(|| "Loading Cooper & Co.".to_owned())}</p>
-            </div>
-        };
-    };
-
-    set_page_title(&props.route);
-
-    match &props.route {
-        PublicRoute::Service(slug) => {
-            if let Some(service) = find_service(slug) {
-                return service_page(&site, service);
-            }
-        }
-        PublicRoute::Location(slug) => {
-            if let Some(location) = find_location(slug) {
-                return location_page(&site, location);
-            }
-        }
-        PublicRoute::Services => return services_index_page(&site),
-        PublicRoute::Resources => return resources_index_page(&site),
-        PublicRoute::Resource(slug) => {
-            if let Some(post) = find_resource(slug) {
-                return resource_page(&site, post);
-            }
-        }
-        PublicRoute::Contact => {}
-        PublicRoute::NotFound => return not_found_page(&site),
-        PublicRoute::Home => {}
-    }
-
     html! {
-        <>
-            <a class="skip-link" href="#contact">{"Skip to contact"}</a>
-            <header class="topbar">
-                <a class="brand" href="/" aria-label="Cooper and Co home">
-                    <span class="brand-mark" aria-hidden="true">{"C&Co"}</span>
-                    <span>{site.business.name.clone()}</span>
-                </a>
-                <nav aria-label="Main navigation">
-                    <a href="/services">{"Services"}</a>
-                    <a href="/services/dog-training">{"Dog training"}</a>
-                    <a href="/service-area/mansfield-oh">{"Service areas"}</a>
-                    <a href="/resources">{"Resources"}</a>
-                    <a href="#faq">{"FAQ"}</a>
-                    <a href="/contact">{"Contact"}</a>
-                </nav>
-            </header>
-
-            <main>
-            <section id="top" class="hero" aria-labelledby="home-title">
-                <picture class="hero-media">
-                    <source srcset={avif_src(&site.business.hero_image)} type="image/avif" />
-                    <img class="hero-image" src={site.business.hero_image.clone()} alt="Cooper & Co. pet services logo from the public Facebook page" width="1600" height="900" sizes="100vw" fetchpriority="high" decoding="async" />
-                </picture>
-                <div class="hero-copy">
-                    <p class="eyebrow">{format!("{} in {}", site.business.category, site.business.location)}</p>
-                    <h1 id="home-title">{"Cooper & Co. pet services and dog training support"}</h1>
-                    <p>{site.business.intro.clone()}</p>
-                    <div class="hero-actions">
-                        <a class="button primary" href="/contact">{"Request information"}</a>
-                        <a class="button secondary" href={format!("tel:{}", site.business.phone.replace([' ', '(', ')', '-'], ""))}>{site.business.phone.clone()}</a>
-                    </div>
-                </div>
-            </section>
-
-            <section class="stats" aria-label="Facebook profile stats">
-                {for site.stats.iter().map(|stat| html! {
-                    <div class="stat">
-                        <strong>{stat.value.clone()}</strong>
-                        <span>{stat.label.clone()}</span>
-                    </div>
-                })}
-            </section>
-
-            <section id="services" class="section" aria-labelledby="services-title">
-                <div class="section-heading">
-                    <p class="eyebrow">{"Services"}</p>
-                    <h2 id="services-title">{"Pet services for Lorain County families"}</h2>
-                </div>
-                <div class="service-grid">
-                    {for site.services.iter().map(|service| html! {
-                        <article class="card">
-                            <h3>{service.title.clone()}</h3>
-                            <p>{service.summary.clone()}</p>
-                            <a href="/services">{"Explore service pages"}</a>
-                        </article>
-                    })}
-                </div>
-            </section>
-
-            <section id="group-classes" class="section split" aria-labelledby="classes-title">
-                <div>
-                    <p class="eyebrow">{"Group classes"}</p>
-                    <h2 id="classes-title">{"Dog training and group classes in Lorain County"}</h2>
-                    <p>{"Cooper & Co. shares class updates publicly and handles booking questions directly by phone, email, Facebook, and the contact form."}</p>
-                </div>
-                <div class="updates">
-                    {for site.updates.iter().map(|update| html! {
-                        <article class="update">
-                            <span>{update.source_label.clone()}</span>
-                            <h3>{update.title.clone()}</h3>
-                            <p>{update.summary.clone()}</p>
-                            <a href={site.business.facebook_url.clone()} target="_blank" rel="noreferrer">{"Open Facebook page"}</a>
-                        </article>
-                    })}
-                </div>
-            </section>
-
-            <section class="gallery" aria-label="Cooper and Co photo preview">
-                {for site.gallery.iter().map(|image| html! {
-                    <picture>
-                        <source srcset={avif_src(&image.src)} type="image/avif" />
-                        <img src={image.src.clone()} alt={image.alt.clone()} width="1200" height="1200" loading="lazy" decoding="async" sizes="(max-width: 820px) 50vw, 33vw" />
-                    </picture>
-                })}
-            </section>
-
-            <section id="service-area" class="section" aria-labelledby="area-title">
-                <div class="section-heading">
-                    <p class="eyebrow">{"Service area"}</p>
-                    <h2 id="area-title">{"Dog services near you"}</h2>
-                    <p>{"These service-area pages support local search around Mansfield, Ontario, Lexington, Bellville, Ashland, and Galion. TODO: owner should confirm active coverage for each city."}</p>
-                </div>
-                <div class="service-grid">
-                    {for SEO_LOCATIONS.iter().map(|location| html! {
-                        <article id={location.slug} class="card"><h3><a href={format!("/service-area/{}", location.slug)}>{location.name}</a></h3><p>{format!("Dog service inquiry page for {} in {}.", location.name, location.county_hint)}</p></article>
-                    })}
-                </div>
-            </section>
-
-            <section id="faq" class="section faq" aria-labelledby="faq-title">
-                <div class="section-heading">
-                    <p class="eyebrow">{"Questions"}</p>
-                    <h2 id="faq-title">{"Dog training, pricing, availability, and service area FAQ"}</h2>
-                </div>
-                <details open=true>
-                    <summary>{"Does Cooper & Co. offer dog training in Lorain County?"}</summary>
-                    <p>{"Yes. Cooper & Co. supports dog training and group class inquiries for Lorain County pet families."}</p>
-                </details>
-                <details>
-                    <summary>{"Are group dog classes or puppy classes available now?"}</summary>
-                    <p>{"Availability can change by season. Use the contact form, phone number, or Facebook page for current class openings."}</p>
-                </details>
-                <details>
-                    <summary>{"How much do pet services or classes cost?"}</summary>
-                    <p>{"Pricing depends on the service, class, and current availability. Contact Cooper & Co. with your pet details for current pricing."}</p>
-                </details>
-                <details>
-                    <summary>{"What cities are in the Cooper & Co. service area?"}</summary>
-                    <p>{"The service area centers on Lorain County, including Elyria, Lorain, Amherst, Avon, and North Ridgeville, Ohio."}</p>
-                </details>
-            </section>
-
-            <section id="contact" class="section contact" aria-labelledby="contact-title">
-                <div class="contact-copy">
-                    <p class="eyebrow">{"Contact"}</p>
-                    <h2 id="contact-title">{"Ask about classes or pet support"}</h2>
-                    <a href={format!("mailto:{}", site.business.email)}>{site.business.email.clone()}</a>
-                    <a href={format!("tel:{}", site.business.phone.replace([' ', '(', ')', '-'], ""))}>{site.business.phone.clone()}</a>
-                    <a href={site.business.facebook_url.clone()} target="_blank" rel="noreferrer">{"Facebook"}</a>
-                    <a href={site.business.yelp_url.clone()} target="_blank" rel="noreferrer">{"Yelp listing"}</a>
-                </div>
-                <form onsubmit={onsubmit} aria-label="Pet service inquiry form">
-                    <label for="name">
-                        {"Name"}
-                        <input id="name" name="name" autocomplete="name" value={form.name.clone()} oninput={update_field("name")} required=true aria-required="true" />
-                    </label>
-                    <label for="email">
-                        {"Email"}
-                        <input id="email" name="email" r#type="email" autocomplete="email" value={form.email.clone()} oninput={update_field("email")} required=true aria-required="true" />
-                    </label>
-                    <label for="phone">
-                        {"Phone"}
-                        <input id="phone" name="phone" r#type="tel" autocomplete="tel" value={form.phone.clone()} oninput={update_field("phone")} />
-                    </label>
-                    <label for="pet-name">
-                        {"Pet name"}
-                        <input id="pet-name" name="pet_name" value={form.pet_name.clone()} oninput={update_field("pet_name")} />
-                    </label>
-                    <label class="wide" for="message">
-                        {"Message"}
-                        <textarea id="message" name="message" value={form.message.clone()} oninput={update_field("message")} required=true aria-required="true" />
-                    </label>
-                    <button class="button primary" type="submit" disabled={*submit_state == "sending"} aria-busy={(*submit_state == "sending").to_string()}>{"Send inquiry"}</button>
-                    <p class="form-status" role="status" aria-live="polite">{match submit_state.as_str() {
-                        "idle" => "",
-                        "sending" => "Sending...",
-                        "sent" => "Inquiry sent.",
-                        other => other,
-                    }}</p>
-                </form>
-            </section>
-            </main>
-
-            <footer>
-                <span>{format!("{} · {}", site.business.name, site.business.location)}</span>
-                <a href="#services">{"Services"}</a>
-                <a href="#contact">{"Contact"}</a>
-                <a href={site.business.facebook_url} target="_blank" rel="noreferrer">{"Facebook"}</a>
-            </footer>
-        </>
+        <section class="section contact" aria-labelledby="contact-title">
+            <div class="contact-copy">
+                <p class="eyebrow">{"Contact"}</p>
+                <h2 id="contact-title">{props.title}</h2>
+                <a href="mailto:cooper.copetservices@gmail.com">{"cooper.copetservices@gmail.com"}</a>
+                <a href="tel:+14402761716">{"(440) 276-1716"}</a>
+                <a href="https://www.facebook.com/CooperAndCoPet" rel="noreferrer">{"Facebook"}</a>
+            </div>
+            <form onsubmit={onsubmit} aria-label="Pet service inquiry form">
+                <label for="name">{"Name"}<input id="name" name="name" autocomplete="name" value={form.name.clone()} oninput={input_handler("name")} required=true /></label>
+                <label for="email">{"Email"}<input id="email" name="email" r#type="email" autocomplete="email" value={form.email.clone()} oninput={input_handler("email")} required=true /></label>
+                <label for="phone">{"Phone"}<input id="phone" name="phone" r#type="tel" autocomplete="tel" value={form.phone.clone()} oninput={input_handler("phone")} /></label>
+                <label for="preferred-contact">{"Preferred contact method"}<input id="preferred-contact" name="preferred_contact_method" value={form.preferred_contact_method.clone()} oninput={input_handler("preferred_contact_method")} placeholder="Email, phone, or text" /></label>
+                <label for="city-or-zip">{"City or ZIP code"}<input id="city-or-zip" name="city_or_zip" autocomplete="postal-code" value={form.city_or_zip.clone()} oninput={input_handler("city_or_zip")} required=true /></label>
+                <label for="pet-name">{"Pet name"}<input id="pet-name" name="pet_name" value={form.pet_name.clone()} oninput={input_handler("pet_name")} /></label>
+                <label for="pet-age">{"Pet age"}<input id="pet-age" name="pet_age" value={form.pet_age.clone()} oninput={input_handler("pet_age")} /></label>
+                <label for="service-interest">{"Service of interest"}<input id="service-interest" name="service_of_interest" value={form.service_of_interest.clone()} oninput={input_handler("service_of_interest")} placeholder="Dog training, puppy training, group dog classes, or not sure" /></label>
+                <label for="timeframe">{"Preferred timeframe"}<input id="timeframe" name="preferred_timeframe" value={form.preferred_timeframe.clone()} oninput={input_handler("preferred_timeframe")} /></label>
+                <label class="wide" for="message">{"Goals or needs"}<textarea id="message" name="message" value={form.message.clone()} oninput={input_handler("message")} required=true /></label>
+                <label class="wide consent" for="consent"><input id="consent" name="consent_acknowledged" r#type="checkbox" checked={form.consent_acknowledged} onchange={consent_handler} required=true />{"I consent to Cooper & Co. using this information to respond to my inquiry."}</label>
+                <label class="hp" for="website">{"Website"}<input id="website" name="website" tabindex="-1" value={form.website.clone()} oninput={input_handler("website")} /></label>
+                <p class="privacy-note wide">{"Do not submit emergency, financial, or private medical information through this form."}</p>
+                <button class="button primary" type="submit" disabled={*status == "sending"} aria-busy={(*status == "sending").to_string()}>{"Send inquiry"}</button>
+                <p class="form-status" role="status" aria-live="polite">{match status.as_str() {
+                    "idle" => "",
+                    "sending" => "Sending...",
+                    "sent" => "Inquiry sent.",
+                    other => other,
+                }}</p>
+            </form>
+        </section>
     }
 }
 
-fn seed_content() -> SiteContent {
-    SiteContent {
-        business: Business {
-            name: "Cooper & Co.".to_owned(),
-            category: "Pet service".to_owned(),
-            location: "Lorain County, OH".to_owned(),
-            phone: "(440) 276-1716".to_owned(),
-            email: "cooper.copetservices@gmail.com".to_owned(),
-            facebook_url: "https://www.facebook.com/CooperAndCoPet".to_owned(),
-            yelp_url: "https://m.yelp.com/biz/cooper-and-company-elyria".to_owned(),
-            intro: "Cooper & Co. helps local pet families ask about dog training, group classes, puppy classes, and pet support across Lorain County, Elyria, Lorain, Amherst, Avon, and North Ridgeville, Ohio.".to_owned(),
-            hero_image: "/assets/facebook-cooperco-hero.webp".to_owned(),
-        },
-        stats: vec![
-            Stat {
-                label: "Facebook likes".to_owned(),
-                value: "177".to_owned(),
-            },
-            Stat {
-                label: "Followers".to_owned(),
-                value: "177".to_owned(),
-            },
-            Stat {
-                label: "Reviews noted".to_owned(),
-                value: "3".to_owned(),
-            },
-        ],
-        services: vec![
-            Service {
-                title: "Group dog classes".to_owned(),
-                summary: "Seasonal group classes help dogs practice calm focus, leash manners, and social learning around other pets.".to_owned(),
-            },
-            Service {
-                title: "Puppy classes and training questions".to_owned(),
-                summary: "Ask about age-appropriate puppy support, early manners, confidence building, and current class availability.".to_owned(),
-            },
-            Service {
-                title: "Local pet service inquiries".to_owned(),
-                summary: "Share your pet details, goals, schedule needs, and location so Cooper & Co. can respond directly.".to_owned(),
-            },
-        ],
-        updates: vec![Update {
-            title: "Ask about upcoming group dog classes".to_owned(),
-            summary: "Class times and openings can change. Contact Cooper & Co. for the latest dog training and group class schedule.".to_owned(),
-            source_label: "Current availability".to_owned(),
-        }],
-        gallery: vec![
-            GalleryImage {
-                src: "/assets/facebook-cooperco-gallery-1.webp".to_owned(),
-                alt: "Cooper & Co. pet services logo from the public Facebook page".to_owned(),
-            },
-            GalleryImage {
-                src: "/assets/facebook-cooperco-gallery-2.webp".to_owned(),
-                alt: "Cooper & Co. pet services logo from the public Facebook page".to_owned(),
-            },
-            GalleryImage {
-                src: "/assets/facebook-cooperco-gallery-3.webp".to_owned(),
-                alt: "Cooper & Co. pet services logo from the public Facebook page".to_owned(),
-            },
-        ],
-    }
-}
-
-fn avif_src(src: &str) -> String {
-    src.strip_suffix(".webp")
-        .map(|base| format!("{base}.avif"))
-        .unwrap_or_else(|| src.to_owned())
-}
-
-fn find_service(slug: &str) -> Option<&'static SeoService> {
-    SEO_SERVICES.iter().find(|service| service.slug == slug)
-}
-
-fn find_location(slug: &str) -> Option<&'static SeoLocation> {
-    SEO_LOCATIONS.iter().find(|location| location.slug == slug)
-}
-
-fn find_resource(slug: &str) -> Option<&'static ResourcePost> {
-    RESOURCE_POSTS.iter().find(|post| post.slug == slug)
-}
-
-fn set_page_title(route: &PublicRoute) {
+fn set_page_title(route: PublicRoute) {
     let title = match route {
-        PublicRoute::Service(slug) => find_service(slug)
-            .map(|service| format!("{} | Cooper & Co.", service.title))
-            .unwrap_or_else(|| "Cooper & Co. Dog Services".to_owned()),
-        PublicRoute::Location(slug) => find_location(slug)
-            .map(|location| format!("Dog Services in {} | Cooper & Co.", location.name))
-            .unwrap_or_else(|| "Cooper & Co. Dog Services".to_owned()),
-        PublicRoute::Services => {
-            "Dog Walking, Training, Sitting & Puppy Care | Cooper & Co.".to_owned()
-        }
-        PublicRoute::Resources => "Dog Care Resources | Cooper & Co.".to_owned(),
-        PublicRoute::Resource(slug) => find_resource(slug)
-            .map(|post| format!("{} | Cooper & Co.", post.title))
-            .unwrap_or_else(|| "Dog Care Resources | Cooper & Co.".to_owned()),
-        PublicRoute::Contact => "Contact Cooper & Co. Dog Services".to_owned(),
-        PublicRoute::NotFound => "Page Not Found | Cooper & Co.".to_owned(),
-        PublicRoute::Home => "Cooper & Co. Dog Services | Mansfield-Area Ohio".to_owned(),
+        PublicRoute::Home => "Cooper & Co. | Dog Training in Lorain, Ohio",
+        PublicRoute::About => "About Cooper & Co. in Lorain, Ohio",
+        PublicRoute::Services => "Dog Training Services in Lorain, OH",
+        PublicRoute::DogTraining => "Dog Training in Lorain, Ohio | Cooper & Co.",
+        PublicRoute::PuppyTraining => "Puppy Training in Lorain County | Cooper & Co.",
+        PublicRoute::GroupDogClasses => "Group Dog Classes Near Lorain, OH | Cooper & Co.",
+        PublicRoute::ServiceAreas => "Service Areas in Lorain County | Cooper & Co.",
+        PublicRoute::LorainArea => "Dog Training in Lorain, OH | Cooper & Co.",
+        PublicRoute::Resources => "Dog Training Resources | Cooper & Co.",
+        PublicRoute::Resource(title) => title,
+        PublicRoute::Contact => "Contact Cooper & Co. in Lorain, Ohio",
+        PublicRoute::Faq => "FAQ | Cooper & Co.",
+        PublicRoute::Privacy => "Privacy Policy | Cooper & Co.",
+        PublicRoute::Accessibility => "Accessibility Statement | Cooper & Co.",
+        PublicRoute::NotFound => "Page Not Found | Cooper & Co.",
     };
-
     if let Some(document) = web_sys::window().and_then(|window| window.document()) {
-        document.set_title(&title);
-        apply_configured_head_hooks(&document);
+        document.set_title(title);
     }
-}
-
-fn apply_configured_head_hooks(document: &web_sys::Document) {
-    upsert_meta(
-        document,
-        "google-site-verification",
-        option_env!("COOPERCO_SEARCH_CONSOLE_VERIFICATION"),
-    );
-    upsert_meta(
-        document,
-        "cooperco-analytics-id",
-        option_env!("COOPERCO_ANALYTICS_ID"),
-    );
-}
-
-fn upsert_meta(document: &web_sys::Document, name: &str, content: Option<&str>) {
-    let Some(content) = content.filter(|value| !value.trim().is_empty()) else {
-        return;
-    };
-    let selector = format!("meta[name=\"{name}\"]");
-    let element = match document.query_selector(&selector).ok().flatten() {
-        Some(element) => element,
-        None => {
-            let Ok(element) = document.create_element("meta") else {
-                return;
-            };
-            let _ = element.set_attribute("name", name);
-            if let Some(head) = document.head() {
-                let _ = head.append_child(&element);
-            }
-            element
-        }
-    };
-    let _ = element.set_attribute("content", content);
-}
-
-fn page_shell(site: &SiteContent, body: Html) -> Html {
-    html! {
-        <>
-            <a class="skip-link" href="#content">{"Skip to content"}</a>
-            <header class="topbar">
-                <a class="brand" href="/" aria-label="Cooper and Co home">
-                    <span class="brand-mark" aria-hidden="true">{"C&Co"}</span>
-                    <span>{site.business.name.clone()}</span>
-                </a>
-                <nav aria-label="Main navigation">
-                    <a href="/services">{"Services"}</a>
-                    <a href="/services/dog-walking">{"Dog walking"}</a>
-                    <a href="/services/dog-training">{"Dog training"}</a>
-                    <a href="/service-area/mansfield-oh">{"Service areas"}</a>
-                    <a href="/resources">{"Resources"}</a>
-                    <a href="/contact">{"Contact"}</a>
-                </nav>
-            </header>
-            <main id="content">{body}</main>
-            <footer>
-                <span>{format!("{} · {}", site.business.name, site.business.location)}</span>
-                <a href="/services">{"Services"}</a>
-                <a href="/contact">{"Contact"}</a>
-                <a href={site.business.facebook_url.clone()} target="_blank" rel="noreferrer">{"Facebook"}</a>
-            </footer>
-        </>
-    }
-}
-
-fn services_index_page(site: &SiteContent) -> Html {
-    page_shell(
-        site,
-        html! {
-            <>
-                <section class="section page-hero" aria-labelledby="services-page-title">
-                    <p class="eyebrow">{"Dog services"}</p>
-                    <h1 id="services-page-title">{"Dog walking, training, sitting, puppy care, and adventures"}</h1>
-                    <p>{"Reusable service pages are ready for owner-confirmed descriptions, pricing, photos, and availability. Current copy avoids unverified claims."}</p>
-                    <div class="hero-actions">
-                        <a class="button primary" href="/contact">{"Book now"}</a>
-                        <a class="button secondary on-light" href="tel:+14402761716">{"Call now"}</a>
-                    </div>
-                </section>
-                <section class="section" aria-labelledby="service-list-title">
-                    <div class="section-heading">
-                        <p class="eyebrow">{"Services"}</p>
-                        <h2 id="service-list-title">{"Choose a dog service page"}</h2>
-                    </div>
-                    <div class="service-grid">
-                        {for SEO_SERVICES.iter().map(service_card)}
-                    </div>
-                </section>
-                {trust_section()}
-                {conversion_section("Ready to ask about dog services?")}
-                {faq_section("Service FAQ", SERVICE_FAQS)}
-                {internal_links_section()}
-            </>
-        },
-    )
-}
-
-fn service_page(site: &SiteContent, service: &SeoService) -> Html {
-    page_shell(
-        site,
-        html! {
-            <>
-                <section class="section page-hero" aria-labelledby="service-title">
-                    <p class="eyebrow">{"Dog service"}</p>
-                    <h1 id="service-title">{format!("{} around Mansfield, Ontario, Lexington, Bellville, Ashland, and Galion", service.title)}</h1>
-                    <p>{service.summary}</p>
-                    <p class="todo-note">{"TODO owner input: add confirmed service description, pricing model, visit length, requirements, and current availability."}</p>
-                    <div class="hero-actions">
-                        <a class="button primary" href="/contact">{"Book now"}</a>
-                        <a class="button secondary on-light" href="tel:+14402761716">{"Call now"}</a>
-                    </div>
-                </section>
-                <section class="section" aria-labelledby="service-area-links-title">
-                    <div class="section-heading">
-                        <p class="eyebrow">{"Service areas"}</p>
-                        <h2 id="service-area-links-title">{format!("{} by city", service.title)}</h2>
-                        <p>{"Each city page links back to this service so local pages can grow without duplicated owner facts."}</p>
-                    </div>
-                    <div class="service-grid">
-                        {for SEO_LOCATIONS.iter().map(|location| html! {
-                            <article class="card">
-                                <h3><a href={format!("/service-area/{}", location.slug)}>{format!("{} in {}", service.title, location.name)}</a></h3>
-                                <p>{format!("Local inquiry page for {} in {}. TODO: owner should confirm active coverage and travel limits.", service.name.to_lowercase(), location.name)}</p>
-                            </article>
-                        })}
-                    </div>
-                </section>
-                {trust_section()}
-                {conversion_section("Ask about this service")}
-                {faq_section("Service FAQ", SERVICE_FAQS)}
-                {internal_links_section()}
-            </>
-        },
-    )
-}
-
-fn location_page(site: &SiteContent, location: &SeoLocation) -> Html {
-    page_shell(
-        site,
-        html! {
-            <>
-                <section class="section page-hero" aria-labelledby="location-title">
-                    <p class="eyebrow">{"Service area"}</p>
-                    <h1 id="location-title">{format!("Dog services in {}", location.name)}</h1>
-                    <p>{format!("Dog walking, dog training, pet sitting, house sitting, puppy care, and dog adventure inquiry page for {} in {}.", location.name, location.county_hint)}</p>
-                    <p class="todo-note">{"TODO owner input: confirm this city is actively served, add neighborhoods, landmarks, local photos, and any travel fees."}</p>
-                    <div class="hero-actions">
-                        <a class="button primary" href="/contact">{"Contact"}</a>
-                        <a class="button secondary on-light" href="/services">{"View services"}</a>
-                    </div>
-                </section>
-                <section class="section" aria-labelledby="location-services-title">
-                    <div class="section-heading">
-                        <p class="eyebrow">{"Available page templates"}</p>
-                        <h2 id="location-services-title">{format!("Dog service pages for {}", location.name)}</h2>
-                    </div>
-                    <div class="service-grid">
-                        {for SEO_SERVICES.iter().map(service_card)}
-                    </div>
-                </section>
-                {trust_section()}
-                {conversion_section("Check local service fit")}
-                {faq_section("Local service FAQ", SERVICE_FAQS)}
-                {internal_links_section()}
-            </>
-        },
-    )
-}
-
-fn resources_index_page(site: &SiteContent) -> Html {
-    page_shell(
-        site,
-        html! {
-            <>
-                <section class="section page-hero" aria-labelledby="resources-title">
-                    <p class="eyebrow">{"Resources"}</p>
-                    <h1 id="resources-title">{"Local dog care resource templates"}</h1>
-                    <p>{"Starter articles are structured for local search and internal linking. TODO: owner should add first-hand guidance, policies, photos, and current service examples before publishing as final advice."}</p>
-                    <div class="hero-actions">
-                        <a class="button primary" href="/contact">{"Ask a question"}</a>
-                        <a class="button secondary on-light" href="/services">{"View services"}</a>
-                    </div>
-                </section>
-                <section class="section" aria-labelledby="resource-list-title">
-                    <div class="section-heading">
-                        <p class="eyebrow">{"Articles"}</p>
-                        <h2 id="resource-list-title">{"Dog care topics"}</h2>
-                    </div>
-                    <div class="service-grid">
-                        {for RESOURCE_POSTS.iter().map(resource_card)}
-                    </div>
-                </section>
-                {conversion_section("Have a local dog care question?")}
-                {internal_links_section()}
-            </>
-        },
-    )
-}
-
-fn resource_page(site: &SiteContent, post: &ResourcePost) -> Html {
-    page_shell(
-        site,
-        html! {
-            <>
-                <article class="section page-hero resource-article" aria-labelledby="resource-title">
-                    <p class="eyebrow">{post.category}</p>
-                    <h1 id="resource-title">{post.title}</h1>
-                    <p>{post.summary}</p>
-                    <div class="article-body">
-                        <h2>{"Planning notes"}</h2>
-                        <ul>
-                            {for post.sections.iter().map(|section| html! { <li>{*section}</li> })}
-                        </ul>
-                        <h2>{"Local service context"}</h2>
-                        <p>{"This page links dog-care education to Cooper & Co. service and service-area pages for Mansfield, Ontario, Lexington, Bellville, Ashland, and Galion. TODO: owner should add location-specific examples only after confirming them."}</p>
-                    </div>
-                    <div class="hero-actions">
-                        <a class="button primary" href="/contact">{"Contact"}</a>
-                        <a class="button secondary on-light" href="/resources">{"All resources"}</a>
-                    </div>
-                </article>
-                {conversion_section("Ask Cooper & Co. about this topic")}
-                {internal_links_section()}
-            </>
-        },
-    )
-}
-
-fn not_found_page(site: &SiteContent) -> Html {
-    page_shell(
-        site,
-        html! {
-            <section class="section page-hero" aria-labelledby="not-found-title">
-                <p class="eyebrow">{"Not found"}</p>
-                <h1 id="not-found-title">{"This Cooper & Co. page is not available"}</h1>
-                <p>{"Use the service, service-area, resource, or contact links to continue."}</p>
-                <div class="hero-actions">
-                    <a class="button primary" href="/services">{"View services"}</a>
-                    <a class="button secondary on-light" href="/contact">{"Contact"}</a>
-                </div>
-            </section>
-        },
-    )
-}
-
-fn service_card(service: &SeoService) -> Html {
-    html! {
-        <article class="card">
-            <h3><a href={format!("/services/{}", service.slug)}>{service.name}</a></h3>
-            <p>{service.summary}</p>
-            <a href={format!("/services/{}", service.slug)}>{"Open service page"}</a>
-        </article>
-    }
-}
-
-fn resource_card(post: &ResourcePost) -> Html {
-    html! {
-        <article class="card">
-            <span class="card-label">{post.category}</span>
-            <h3><a href={format!("/resources/{}", post.slug)}>{post.title}</a></h3>
-            <p>{post.summary}</p>
-            <a href={format!("/resources/{}", post.slug)}>{"Read resource"}</a>
-        </article>
-    }
-}
-
-fn trust_section() -> Html {
-    html! {
-        <section class="section trust-section" aria-labelledby="trust-title">
-            <div class="section-heading">
-                <p class="eyebrow">{"Trust"}</p>
-                <h2 id="trust-title">{"Owner-confirmed details still belong in config"}</h2>
-                <p>{"The site is structured to support local ranking without overstating service facts. TODO: owner should confirm service availability, city coverage, credentials, insurance or bonding, pricing, testimonials, and current policies before replacing placeholders."}</p>
-            </div>
-        </section>
-    }
-}
-
-fn conversion_section(title: &str) -> Html {
-    html! {
-        <section class="section cta-band" aria-labelledby="cta-title">
-            <div>
-                <p class="eyebrow">{"Next step"}</p>
-                <h2 id="cta-title">{title}</h2>
-                <p>{"Share your city, dates, pet details, and service goals so Cooper & Co. can confirm whether there is a fit."}</p>
-            </div>
-            <div class="cta-actions">
-                <a class="button primary" href="/contact">{"Book now"}</a>
-                <a class="button secondary on-light" href="tel:+14402761716">{"Call now"}</a>
-                <a class="button secondary on-light" href="mailto:cooper.copetservices@gmail.com">{"Email"}</a>
-            </div>
-        </section>
-    }
-}
-
-fn faq_section(title: &str, items: &[FaqItem]) -> Html {
-    html! {
-        <section class="section faq" aria-labelledby="page-faq-title">
-            <div class="section-heading">
-                <p class="eyebrow">{"Questions"}</p>
-                <h2 id="page-faq-title">{title}</h2>
-            </div>
-            {for items.iter().enumerate().map(|(index, item)| html! {
-                <details open={index == 0}>
-                    <summary>{item.question}</summary>
-                    <p>{item.answer}</p>
-                </details>
-            })}
-        </section>
-    }
-}
-
-fn internal_links_section() -> Html {
-    html! {
-        <section class="section link-panel" aria-labelledby="internal-links-title">
-            <div class="section-heading">
-                <p class="eyebrow">{"Explore"}</p>
-                <h2 id="internal-links-title">{"Service, location, resource, and contact links"}</h2>
-            </div>
-            <div class="link-columns">
-                <div>
-                    <h3>{"Services"}</h3>
-                    {for SEO_SERVICES.iter().map(|service| html! { <a href={format!("/services/{}", service.slug)}>{service.name}</a> })}
-                </div>
-                <div>
-                    <h3>{"Locations"}</h3>
-                    {for SEO_LOCATIONS.iter().map(|location| html! { <a href={format!("/service-area/{}", location.slug)}>{location.name}</a> })}
-                </div>
-                <div>
-                    <h3>{"Next steps"}</h3>
-                    <a href="/resources">{"Resources"}</a>
-                    {for RESOURCE_POSTS.iter().map(|post| html! { <a href={format!("/resources/{}", post.slug)}>{post.title}</a> })}
-                    <a href="/contact">{"Contact"}</a>
-                    <a href="tel:+14402761716">{"Call Cooper & Co."}</a>
-                </div>
-            </div>
-        </section>
-    }
-}
-
-fn main() {
-    yew::Renderer::<App>::new().render();
 }
 
 #[function_component(AdminPage)]
@@ -1090,16 +556,14 @@ fn admin_page() -> Html {
             });
             || ()
         });
-    };
+    }
 
     let onrefresh = {
         let inquiries = inquiries.clone();
         let status = status.clone();
-
         Callback::from(move |_| {
             let inquiries = inquiries.clone();
             let status = status.clone();
-
             status.set(Some("Refreshing inquiries...".to_owned()));
             spawn_local(async move {
                 match fetch_admin_inquiries().await {
@@ -1111,73 +575,6 @@ fn admin_page() -> Html {
                 }
             });
         })
-    };
-
-    let update_status = {
-        let inquiries = inquiries.clone();
-        let status = status.clone();
-
-        move |id: String, next_status: &'static str| {
-            let inquiries = inquiries.clone();
-            let status = status.clone();
-            let next_status = next_status.to_owned();
-
-            Callback::from(move |_| {
-                let id = id.clone();
-                let next_status = next_status.clone();
-                let inquiries = inquiries.clone();
-                let status = status.clone();
-
-                status.set(Some("Updating inquiry...".to_owned()));
-                spawn_local(async move {
-                    match update_admin_inquiry_status(&id, &next_status).await {
-                        Ok(updated) => {
-                            let mut next_items = (*inquiries).clone();
-                            if let Some(existing) =
-                                next_items.iter_mut().find(|item| item.id == updated.id)
-                            {
-                                *existing = updated;
-                            }
-                            inquiries.set(next_items);
-                            status.set(None);
-                        }
-                        Err(error) => status.set(Some(error)),
-                    }
-                });
-            })
-        }
-    };
-
-    let delete_item = {
-        let inquiries = inquiries.clone();
-        let status = status.clone();
-
-        move |id: String| {
-            let inquiries = inquiries.clone();
-            let status = status.clone();
-
-            Callback::from(move |_| {
-                let id = id.clone();
-                let inquiries = inquiries.clone();
-                let status = status.clone();
-
-                status.set(Some("Deleting inquiry...".to_owned()));
-                spawn_local(async move {
-                    match delete_admin_inquiry(&id).await {
-                        Ok(()) => {
-                            let next_items = inquiries
-                                .iter()
-                                .filter(|item| item.id != id)
-                                .cloned()
-                                .collect::<Vec<_>>();
-                            inquiries.set(next_items);
-                            status.set(None);
-                        }
-                        Err(error) => status.set(Some(error)),
-                    }
-                });
-            })
-        }
     };
 
     html! {
@@ -1213,42 +610,35 @@ fn admin_page() -> Html {
                         if inquiries.is_empty() {
                             <p class="empty-state">{"No contact requests yet."}</p>
                         } else {
-                            {for inquiries.iter().map(|inquiry| html! {
-                                <article class="inquiry-row">
-                                    <div>
-                                        <div class="inquiry-title">
-                                            <h2>{inquiry.name.clone()}</h2>
-                                            <span class={classes!("status-badge", status_class(&inquiry.status))}>{status_label(&inquiry.status)}</span>
-                                        </div>
-                                        <p>{inquiry.message.clone()}</p>
-                                    </div>
-                                    <dl>
-                                        <div>
-                                            <dt>{"Email"}</dt>
-                                            <dd><a href={format!("mailto:{}", inquiry.email)}>{inquiry.email.clone()}</a></dd>
-                                        </div>
-                                        <div>
-                                            <dt>{"Phone"}</dt>
-                                            <dd>{empty_fallback(&inquiry.phone)}</dd>
-                                        </div>
-                                        <div>
-                                            <dt>{"Pet"}</dt>
-                                            <dd>{empty_fallback(&inquiry.pet_name)}</dd>
-                                        </div>
-                                    </dl>
-                                    <div class="inquiry-actions">
-                                        <button class="button secondary admin-action" type="button" onclick={update_status(inquiry.id.clone(), "submitted")}>{"Submitted"}</button>
-                                        <button class="button secondary admin-action" type="button" onclick={update_status(inquiry.id.clone(), "contacted")}>{"Contacted"}</button>
-                                        <button class="button secondary admin-action" type="button" onclick={update_status(inquiry.id.clone(), "purchased")}>{"Purchased"}</button>
-                                        <button class="button danger admin-action" type="button" onclick={delete_item(inquiry.id.clone())}>{"Delete"}</button>
-                                    </div>
-                                </article>
-                            })}
+                            {for inquiries.iter().map(inquiry_row)}
                         }
                     </div>
                 }
             </section>
         </main>
+    }
+}
+
+fn inquiry_row(inquiry: &Inquiry) -> Html {
+    html! {
+        <article class="inquiry-row">
+            <div>
+                <div class="inquiry-title">
+                    <h2>{inquiry.name.clone()}</h2>
+                    <span class={classes!("status-badge", status_class(&inquiry.status))}>{status_label(&inquiry.status)}</span>
+                </div>
+                <p>{inquiry.message.clone()}</p>
+            </div>
+            <dl>
+                <div><dt>{"Email"}</dt><dd><a href={format!("mailto:{}", inquiry.email)}>{inquiry.email.clone()}</a></dd></div>
+                <div><dt>{"Phone"}</dt><dd>{empty_fallback(&inquiry.phone)}</dd></div>
+                <div><dt>{"Preferred contact"}</dt><dd>{empty_fallback(&inquiry.preferred_contact_method)}</dd></div>
+                <div><dt>{"City or ZIP"}</dt><dd>{empty_fallback(&inquiry.city_or_zip)}</dd></div>
+                <div><dt>{"Pet"}</dt><dd>{format!("{} {}", empty_fallback(&inquiry.pet_name), empty_fallback(&inquiry.pet_age))}</dd></div>
+                <div><dt>{"Service"}</dt><dd>{empty_fallback(&inquiry.service_of_interest)}</dd></div>
+                <div><dt>{"Timeframe"}</dt><dd>{empty_fallback(&inquiry.preferred_timeframe)}</dd></div>
+            </dl>
+        </article>
     }
 }
 
@@ -1310,41 +700,6 @@ async fn fetch_admin_inquiries() -> Result<Vec<Inquiry>, String> {
     }
 }
 
-async fn update_admin_inquiry_status(id: &str, next_status: &str) -> Result<Inquiry, String> {
-    let payload = InquiryStatusUpdate {
-        status: next_status.to_owned(),
-    };
-    let request = Request::patch(&format!("/api/admin/inquiries/{id}/status"))
-        .header("Content-Type", "application/json")
-        .json(&payload)
-        .map_err(|error| format!("Could not prepare status update: {error}"))?;
-
-    match request.send().await {
-        Ok(response) if response.ok() => response
-            .json::<Inquiry>()
-            .await
-            .map_err(|error| format!("Could not read updated inquiry: {error}")),
-        Ok(response) if response.status() == 401 => {
-            Err("Sign in again to update inquiries.".to_owned())
-        }
-        Ok(response) => Err(format!(
-            "Status update failed with status {}.",
-            response.status()
-        )),
-        Err(error) => Err(format!("Could not update inquiry: {error}")),
-    }
-}
-
-async fn delete_admin_inquiry(id: &str) -> Result<(), String> {
-    match Request::delete(&format!("/api/admin/inquiries/{id}"))
-        .send()
-        .await
-    {
-        Ok(response) if response.ok() => Ok(()),
-        Ok(response) if response.status() == 401 => {
-            Err("Sign in again to delete inquiries.".to_owned())
-        }
-        Ok(response) => Err(format!("Delete failed with status {}.", response.status())),
-        Err(error) => Err(format!("Could not delete inquiry: {error}")),
-    }
+fn main() {
+    yew::Renderer::<App>::new().render();
 }
