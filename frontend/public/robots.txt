@@ -1,4 +1,6 @@
 User-agent: *
 Allow: /
+Disallow: /admin
+Disallow: /api/
+Disallow: /auth/
 Sitemap: https://cooper-and-co.com/sitemap.xml
-Sitemap: https://beta.cooper-and-co.com/sitemap.xml

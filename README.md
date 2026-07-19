@@ -128,16 +128,16 @@ On Linux:
 
 Rocket route behavior in production:
 
-- `/` returns the compiled frontend `index.html`.
+- `/` and public marketing routes return route-specific crawlable HTML from Rocket.
 - Static frontend assets are served by Rocket with normal file MIME types.
-- Frontend SPA routes such as `/admin` fall back to `index.html`.
+- `/admin` returns a noindex admin shell.
 - `/api/*` and `/auth/*` are handled by Rocket backend routes and do not fall back to the frontend.
 
 Cloudflare Tunnel ingress example:
 
 ```yaml
 ingress:
-  - hostname: beta.cooper-and-co.com
+  - hostname: cooper-and-co.com
     service: http://127.0.0.1:9001
   - service: http_status:404
 ```
@@ -147,15 +147,18 @@ Production `.env` values for `backend/.env`:
 ```dotenv
 ROCKET_ADDRESS=127.0.0.1
 ROCKET_PORT=9001
-PUBLIC_APP_URL=https://beta.cooper-and-co.com
-BACKEND_BASE_URL=https://beta.cooper-and-co.com
-MICROSOFT_REDIRECT_URI=https://beta.cooper-and-co.com/auth/microsoft/callback
-MICROSOFT_POST_LOGIN_REDIRECT_URI=https://beta.cooper-and-co.com/admin
+PUBLIC_APP_URL=https://cooper-and-co.com
+BACKEND_BASE_URL=https://cooper-and-co.com
+PRODUCTION_SITE_URL=https://cooper-and-co.com
+MICROSOFT_REDIRECT_URI=https://cooper-and-co.com/auth/microsoft/callback
+MICROSOFT_POST_LOGIN_REDIRECT_URI=https://cooper-and-co.com/admin
 BEHIND_PROXY=true
 COOKIE_SECURE=true
-COOKIE_DOMAIN=beta.cooper-and-co.com
+COOKIE_DOMAIN=cooper-and-co.com
 ROCKET_SECRET_KEY=replace-with-a-stable-production-secret
 ```
+
+For beta or staging, set `COOPERCO_NOINDEX=true` and use the staging host only for `PUBLIC_APP_URL`, `BACKEND_BASE_URL`, and Microsoft redirect settings.
 
 Generate `ROCKET_SECRET_KEY` with a secure random 32-byte base64 value. Keep it stable across restarts so Rocket private cookies remain decryptable.
 
@@ -192,7 +195,7 @@ http://127.0.0.1:9001/auth/microsoft/callback
 - Redirect URI for production with Cloudflare Tunnel pointed at Rocket:
 
 ```text
-https://beta.cooper-and-co.com/auth/microsoft/callback
+https://cooper-and-co.com/auth/microsoft/callback
 ```
 
 If the same public host serves both the frontend and backend, the production redirect can be:
@@ -256,14 +259,14 @@ Production manual checks after `trunk build --release --config frontend/Trunk.to
 ```sh
 curl -vk http://127.0.0.1:9001/
 curl -vk http://127.0.0.1:9001/auth/microsoft/login
-curl -vk https://beta.cooper-and-co.com/auth/microsoft/login
+curl -vk https://cooper-and-co.com/auth/microsoft/login
 ```
 
 Expected results:
 
 - `http://127.0.0.1:9001/` returns the frontend HTML.
 - Both `/auth/microsoft/login` requests return a redirect to `login.microsoftonline.com`.
-- The Microsoft authorization URL contains `redirect_uri=https%3A%2F%2Fbeta.cooper-and-co.com%2Fauth%2Fmicrosoft%2Fcallback`.
+- The Microsoft authorization URL contains `redirect_uri=https%3A%2F%2Fcooper-and-co.com%2Fauth%2Fmicrosoft%2Fcallback`.
 
 Admin APIs under `/api/admin/*` require either a valid Microsoft admin session cookie or an `Authorization: Bearer <token>` header matching `ADMIN_API_TOKEN`:
 
@@ -273,10 +276,10 @@ ADMIN_API_TOKEN=use-a-long-random-token
 
 ## SEO Configuration
 
-Rocket serves `robots.txt` and `sitemap.xml` explicitly. Set the public production URL before deployment so sitemap entries, canonical URLs, and social previews point at the live domain:
+Rocket serves route-specific crawlable HTML, `robots.txt`, and `sitemap.xml` from the centralized registry in `backend/src/seo.rs`. Production canonicals and sitemap entries point to:
 
 ```powershell
-$env:PUBLIC_SITE_URLS="https://beta.cooper-and-co.com,https://cooper-and-co.com"
+$env:PRODUCTION_SITE_URL="https://cooper-and-co.com"
 ```
 
 Production is indexable by default. For beta or staging deployments only, block crawlers with:
@@ -289,25 +292,25 @@ The frontend build also copies static fallback files from `frontend/public/robot
 
 ### Local SEO page foundation
 
-The current SEO foundation includes route templates for:
+The current SEO foundation includes confirmed public pages for:
 
-- Services: dog walking, dog training, pet sitting, house sitting, puppy care, and dog adventures.
-- Service areas: Mansfield, Ontario, Lexington, Bellville, Ashland, and Galion, Ohio.
-- Resources: local dog walking checklist, puppy care first-week notes, and dog adventure safety questions.
+- Services: dog training, puppy training, and group dog classes.
+- Service areas: Lorain, Ohio. Nearby Lorain County communities are stored as unconfirmed candidates and are not included as indexable location pages.
+- Resources: practical dog training, puppy training, and group-class articles.
 
-These pages intentionally use TODO placeholders where owner confirmation is required. Before final publishing, confirm exact service availability, active city coverage, service radius, pricing model, credentials, insurance or bonding, testimonials, and local photos.
+Owner-confirmation fields are tracked in `content/business_profile.toml` and `docs/CONTENT_REQUIREMENTS.md`. Do not publish additional services, locations, prices, hours, testimonials, credentials, or policy claims until the owner confirms them.
 
 ### Search Console and analytics hooks
 
-Set these before `trunk build` to embed verification/measurement IDs into the frontend at compile time:
+Set these before starting Rocket to emit verification/measurement hooks only when values are present and valid:
 
 ```powershell
-$env:COOPERCO_SEARCH_CONSOLE_VERIFICATION="google-site-verification-token"
-$env:COOPERCO_ANALYTICS_ID="analytics-or-tag-manager-id"
-trunk build --release --config frontend/Trunk.toml
+$env:GOOGLE_SITE_VERIFICATION="google-site-verification-token"
+$env:BING_SITE_VERIFICATION="bing-verification-token"
+$env:GA4_MEASUREMENT_ID="G-XXXXXXXXXX"
 ```
 
-The frontend writes these as metadata only when values are present, so local and staging builds can omit them.
+Local and staging builds can omit analytics and verification IDs.
 
 ### SEO validation commands
 
