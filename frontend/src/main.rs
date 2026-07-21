@@ -1,7 +1,7 @@
 use gloo_net::http::Request;
 use serde::{Deserialize, Serialize};
 use wasm_bindgen_futures::spawn_local;
-use web_sys::{HtmlInputElement, HtmlTextAreaElement};
+use web_sys::{HtmlInputElement, HtmlSelectElement, HtmlTextAreaElement};
 use yew::prelude::*;
 
 #[derive(Clone, Debug, Default, Serialize)]
@@ -51,7 +51,6 @@ enum PublicRoute {
     PuppyTraining,
     GroupDogClasses,
     ServiceAreas,
-    LorainArea,
     Resources,
     Resource(&'static str),
     Contact,
@@ -85,7 +84,6 @@ fn public_route(path: &str) -> PublicRoute {
         "/services/puppy-training" => PublicRoute::PuppyTraining,
         "/services/group-dog-classes" => PublicRoute::GroupDogClasses,
         "/service-areas" => PublicRoute::ServiceAreas,
-        "/service-areas/lorain-oh" => PublicRoute::LorainArea,
         "/resources" => PublicRoute::Resources,
         "/contact" => PublicRoute::Contact,
         "/faq" => PublicRoute::Faq,
@@ -109,13 +107,12 @@ fn public_page(props: &PublicPageProps) -> Html {
             <main id="content">
                 {match props.route {
                     PublicRoute::Home => home_page(),
-                    PublicRoute::About => simple_page("About Cooper & Co.", "Cooper & Co. is based in Lorain, Ohio. Owner-approved credentials, hours, pricing, policies, and testimonials should be added when confirmed."),
+                    PublicRoute::About => simple_page("About Cooper & Co.", "Cooper & Co. serves Lorain County, including Elyria, Lorain, Amherst, Avon, and North Ridgeville. Use the listed contact options to ask about dog training, puppy training, and group dog classes."),
                     PublicRoute::Services => services_page(),
                     PublicRoute::DogTraining => service_page("Dog training", "Dog training inquiries can cover leash manners, focus, everyday skills, and class fit."),
                     PublicRoute::PuppyTraining => service_page("Puppy training", "Puppy training inquiries focus on early manners, confidence, routines, and age-appropriate class readiness."),
                     PublicRoute::GroupDogClasses => service_page("Group dog classes", "Group dog class inquiries help determine class fit, preparation, and current availability."),
                     PublicRoute::ServiceAreas => service_areas_page(),
-                    PublicRoute::LorainArea => simple_page("Dog training in Lorain, OH", "Lorain is the confirmed home-city service-area page. Ask directly about nearby communities."),
                     PublicRoute::Resources => resources_page(),
                     PublicRoute::Resource(title) => resource_article_page(title),
                     PublicRoute::Contact => html! { <ContactSection title="Contact Cooper & Co." /> },
@@ -173,12 +170,12 @@ fn home_page() -> Html {
             <section class="hero" aria-labelledby="home-title">
                 <picture class="hero-media">
                     <source srcset="/assets/cooperco-pet-services-hero.avif" type="image/avif" />
-                    <img class="hero-image" src="/assets/cooperco-pet-services-hero.webp" alt="Cooper & Co. dog training and pet service branding" width="1600" height="900" fetchpriority="high" decoding="async" />
+                    <img class="hero-image" src="/assets/cooperco-pet-services-hero.webp" alt="Black and tan dog on a leash in a park with dog-training cones in the background" width="1600" height="900" fetchpriority="high" decoding="async" />
                 </picture>
                 <div class="hero-copy">
-                    <p class="eyebrow">{"Pet service based in Lorain, Ohio"}</p>
-                    <h1 id="home-title">{"Cooper & Co. dog training and pet services in Lorain, Ohio"}</h1>
-                    <p>{"Cooper & Co. is based in Lorain and serves pet owners across Lorain County and nearby communities. Ask about dog training, puppy training, and group dog classes."}</p>
+                    <p class="eyebrow">{"Pet service based in Lorain County, Ohio"}</p>
+                    <h1 id="home-title">{"Cooper & Co. dog training and pet services in Lorain County"}</h1>
+                    <p>{"Cooper & Co. serves Lorain County, including Elyria, Lorain, Amherst, Avon, and North Ridgeville. Ask about dog training, puppy training, and group dog classes."}</p>
                     <div class="hero-actions">
                         <a class="button primary" href="/contact">{"Request information"}</a>
                         <a class="button secondary" href="tel:+14402761716">{"(440) 276-1716"}</a>
@@ -188,8 +185,8 @@ fn home_page() -> Html {
             <section class="section" aria-labelledby="home-services-title">
                 <div class="section-heading">
                     <p class="eyebrow">{"Services"}</p>
-                    <h2 id="home-services-title">{"Confirmed service pages"}</h2>
-                    <p>{"These are the current public service pages supported by repository evidence."}</p>
+                    <h2 id="home-services-title">{"Dog training and class inquiries"}</h2>
+                    <p>{"Use the current service pages to share dog details, training goals, location, and preferred timing."}</p>
                 </div>
                 <div class="service-grid">
                     <article class="card"><h3><a href="/services/dog-training">{"Dog training"}</a></h3><p>{"Everyday training goals, leash manners, focus, and class-fit questions."}</p></article>
@@ -204,9 +201,9 @@ fn home_page() -> Html {
                     <p>{"Share your city or ZIP code, pet age, goals, service interest, and preferred timeframe so Cooper & Co. can confirm fit."}</p>
                 </div>
                 <article class="update">
-                    <span>{"Owner-confirmed facts"}</span>
-                    <h3>{"No unsupported claims"}</h3>
-                    <p>{"Hours, prices, service radius, credentials, testimonials, and requirements should be published only after owner approval."}</p>
+                    <span>{"Current next step"}</span>
+                    <h3>{"Share your goals before booking"}</h3>
+                    <p>{"Use the inquiry form to describe your dog, location, goals, and preferred timeframe."}</p>
                 </article>
             </section>
             <ContactSection title="Ask about training or classes" />
@@ -220,7 +217,7 @@ fn services_page() -> Html {
             <div class="section-heading">
                 <p class="eyebrow">{"Services"}</p>
                 <h1 id="services-title">{"Dog training services from Cooper & Co."}</h1>
-                <p>{"These are the current public service pages supported by repository evidence."}</p>
+                <p>{"Use the current service pages to share dog details, training goals, location, and preferred timing."}</p>
             </div>
             <div class="service-grid">
                 <article class="card"><h3><a href="/services/dog-training">{"Dog training"}</a></h3><p>{"Everyday training goals, leash manners, focus, and class-fit questions."}</p></article>
@@ -260,10 +257,11 @@ fn service_areas_page() -> Html {
         <section class="section page-hero" aria-labelledby="areas-title">
             <p class="eyebrow">{"Service areas"}</p>
             <h1 id="areas-title">{"Cooper & Co. service areas"}</h1>
-            <p>{"Cooper & Co. is based in Lorain, Ohio. Additional nearby communities are stored as candidates until the owner confirms active coverage."}</p>
+            <p>{"Cooper & Co. serves Lorain County, including Elyria, Lorain, Amherst, Avon, and North Ridgeville."}</p>
             <div class="service-grid">
-                <article class="card"><h3><a href="/service-areas/lorain-oh">{"Lorain, OH"}</a></h3><p>{"Confirmed home-city service-area page."}</p></article>
-                <article class="card"><h3>{"Nearby communities"}</h3><p>{"Ask directly about current availability in your city or ZIP code."}</p></article>
+                <article class="card"><h3>{"Elyria, OH"}</h3><p>{"Include your city or ZIP code when sending an inquiry."}</p></article>
+                <article class="card"><h3>{"Lorain, OH"}</h3><p>{"Include your city or ZIP code when sending an inquiry."}</p></article>
+                <article class="card"><h3>{"Amherst, Avon, and North Ridgeville"}</h3><p>{"Ask directly about current availability in your city or ZIP code."}</p></article>
             </div>
         </section>
     }
@@ -345,9 +343,9 @@ fn faq_page() -> Html {
                 <p class="eyebrow">{"FAQ"}</p>
                 <h1 id="faq-title">{"Cooper & Co. questions"}</h1>
             </div>
-            <details open=true><summary>{"Where is Cooper & Co. based?"}</summary><p>{"Cooper & Co. is based in Lorain, Ohio."}</p></details>
+            <details open=true><summary>{"Where does Cooper & Co. serve?"}</summary><p>{"Cooper & Co. serves Lorain County, including Elyria, Lorain, Amherst, Avon, and North Ridgeville."}</p></details>
             <details><summary>{"Which services are published?"}</summary><p>{"Dog training, puppy training, and group dog classes."}</p></details>
-            <details><summary>{"Are hours or prices published?"}</summary><p>{"Hours and prices require owner confirmation before they can be published as fixed website claims."}</p></details>
+            <details><summary>{"Are hours or prices published?"}</summary><p>{"The website does not publish fixed hours or prices. Use the contact form, phone, or email for current details."}</p></details>
         </section>
     }
 }
@@ -410,6 +408,26 @@ fn contact_section(props: &ContactProps) -> Html {
         }
     };
 
+    let change_handler = {
+        let form = form.clone();
+        move |field: &'static str| {
+            let form = form.clone();
+            Callback::from(move |event: Event| {
+                let value = event
+                    .target_dyn_into::<HtmlSelectElement>()
+                    .map(|select| select.value())
+                    .unwrap_or_default();
+                let mut next = (*form).clone();
+                match field {
+                    "preferred_contact_method" => next.preferred_contact_method = value,
+                    "service_of_interest" => next.service_of_interest = value,
+                    _ => {}
+                }
+                form.set(next);
+            })
+        }
+    };
+
     let consent_handler = {
         let form = form.clone();
         Callback::from(move |event: Event| {
@@ -428,6 +446,9 @@ fn contact_section(props: &ContactProps) -> Html {
         let status = status.clone();
         Callback::from(move |event: SubmitEvent| {
             event.prevent_default();
+            if *status == "sending" {
+                return;
+            }
             let payload = (*form).clone();
             let form = form.clone();
             let status = status.clone();
@@ -472,11 +493,11 @@ fn contact_section(props: &ContactProps) -> Html {
                 <label for="name">{"Name"}<input id="name" name="name" autocomplete="name" value={form.name.clone()} oninput={input_handler("name")} required=true /></label>
                 <label for="email">{"Email"}<input id="email" name="email" r#type="email" autocomplete="email" value={form.email.clone()} oninput={input_handler("email")} required=true /></label>
                 <label for="phone">{"Phone"}<input id="phone" name="phone" r#type="tel" autocomplete="tel" value={form.phone.clone()} oninput={input_handler("phone")} /></label>
-                <label for="preferred-contact">{"Preferred contact method"}<input id="preferred-contact" name="preferred_contact_method" value={form.preferred_contact_method.clone()} oninput={input_handler("preferred_contact_method")} placeholder="Email, phone, or text" /></label>
+                <label for="preferred-contact">{"Preferred contact method"}<select id="preferred-contact" name="preferred_contact_method" value={form.preferred_contact_method.clone()} onchange={change_handler("preferred_contact_method")}><option value="">{"Choose one"}</option><option value="email">{"Email"}</option><option value="phone">{"Phone"}</option><option value="text">{"Text"}</option></select></label>
                 <label for="city-or-zip">{"City or ZIP code"}<input id="city-or-zip" name="city_or_zip" autocomplete="postal-code" value={form.city_or_zip.clone()} oninput={input_handler("city_or_zip")} required=true /></label>
                 <label for="pet-name">{"Pet name"}<input id="pet-name" name="pet_name" value={form.pet_name.clone()} oninput={input_handler("pet_name")} /></label>
                 <label for="pet-age">{"Pet age"}<input id="pet-age" name="pet_age" value={form.pet_age.clone()} oninput={input_handler("pet_age")} /></label>
-                <label for="service-interest">{"Service of interest"}<input id="service-interest" name="service_of_interest" value={form.service_of_interest.clone()} oninput={input_handler("service_of_interest")} placeholder="Dog training, puppy training, group dog classes, or not sure" /></label>
+                <label for="service-interest">{"Service of interest"}<select id="service-interest" name="service_of_interest" value={form.service_of_interest.clone()} onchange={change_handler("service_of_interest")}><option value="">{"Choose one"}</option><option value="dog training">{"Dog training"}</option><option value="puppy training">{"Puppy training"}</option><option value="group dog classes">{"Group dog classes"}</option><option value="not sure">{"Not sure"}</option></select></label>
                 <label for="timeframe">{"Preferred timeframe"}<input id="timeframe" name="preferred_timeframe" value={form.preferred_timeframe.clone()} oninput={input_handler("preferred_timeframe")} /></label>
                 <label class="wide" for="message">{"Goals or needs"}<textarea id="message" name="message" value={form.message.clone()} oninput={input_handler("message")} required=true /></label>
                 <label class="wide consent" for="consent"><input id="consent" name="consent_acknowledged" r#type="checkbox" checked={form.consent_acknowledged} onchange={consent_handler} required=true />{"I consent to Cooper & Co. using this information to respond to my inquiry."}</label>
@@ -496,17 +517,16 @@ fn contact_section(props: &ContactProps) -> Html {
 
 fn set_page_title(route: PublicRoute) {
     let title = match route {
-        PublicRoute::Home => "Cooper & Co. | Dog Training in Lorain, Ohio",
-        PublicRoute::About => "About Cooper & Co. in Lorain, Ohio",
-        PublicRoute::Services => "Dog Training Services in Lorain, OH",
-        PublicRoute::DogTraining => "Dog Training in Lorain, Ohio | Cooper & Co.",
+        PublicRoute::Home => "Cooper & Co. | Dog Training in Lorain County, Ohio",
+        PublicRoute::About => "About Cooper & Co. in Lorain County",
+        PublicRoute::Services => "Dog Training Services in Lorain County",
+        PublicRoute::DogTraining => "Dog Training in Lorain County, Ohio | Cooper & Co.",
         PublicRoute::PuppyTraining => "Puppy Training in Lorain County | Cooper & Co.",
-        PublicRoute::GroupDogClasses => "Group Dog Classes Near Lorain, OH | Cooper & Co.",
+        PublicRoute::GroupDogClasses => "Group Dog Classes in Lorain County | Cooper & Co.",
         PublicRoute::ServiceAreas => "Service Areas in Lorain County | Cooper & Co.",
-        PublicRoute::LorainArea => "Dog Training in Lorain, OH | Cooper & Co.",
         PublicRoute::Resources => "Dog Training Resources | Cooper & Co.",
         PublicRoute::Resource(title) => title,
-        PublicRoute::Contact => "Contact Cooper & Co. in Lorain, Ohio",
+        PublicRoute::Contact => "Contact Cooper & Co. in Lorain County",
         PublicRoute::Faq => "FAQ | Cooper & Co.",
         PublicRoute::Privacy => "Privacy Policy | Cooper & Co.",
         PublicRoute::Accessibility => "Accessibility Statement | Cooper & Co.",

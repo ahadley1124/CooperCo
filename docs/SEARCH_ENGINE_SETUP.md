@@ -2,7 +2,7 @@
 
 1. Verify `https://cooper-and-co.com` in Google Search Console.
 2. Submit `https://cooper-and-co.com/sitemap.xml`.
-3. Use URL Inspection for `/`, `/services/dog-training`, `/services/puppy-training`, `/services/group-dog-classes`, and `/service-areas/lorain-oh`.
+3. Use URL Inspection for `/`, `/services/dog-training`, `/services/puppy-training`, `/services/group-dog-classes`, and `/service-areas`.
 4. Check `site:cooper-and-co.com` indexing after release.
 5. Confirm every indexed URL has the production canonical.
 6. Validate JSON-LD with Google's Rich Results Test or Schema Markup Validator.

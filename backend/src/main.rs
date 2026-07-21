@@ -44,6 +44,9 @@ const ADMIN_OAUTH_COOKIE: &str = "cooperco_ms_oauth";
 const MICROSOFT_AUTHORITY: &str = "https://login.microsoftonline.com";
 const MICROSOFT_SCOPES: &str = "openid profile email User.Read";
 
+#[cfg(test)]
+pub(crate) static ENV_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
 #[derive(Clone)]
 enum Store {
     Surreal(Arc<Db>),
@@ -1405,54 +1408,41 @@ fn seed_content() -> SiteContent {
             email: "cooper.copetservices@gmail.com".to_owned(),
             facebook_url: "https://www.facebook.com/CooperAndCoPet".to_owned(),
             yelp_url: "https://m.yelp.com/biz/cooper-and-company-elyria".to_owned(),
-            intro: "Cooper & Co. helps local pet families ask about dog training, group classes, puppy classes, and pet support across Lorain County, Elyria, Lorain, Amherst, Avon, and North Ridgeville, Ohio.".to_owned(),
-            hero_image: "/assets/facebook-cooperco-hero.webp".to_owned(),
+            intro: "Cooper & Co. serves Lorain County, including Elyria, Lorain, Amherst, Avon, and North Ridgeville. Ask about dog training, puppy training, and group dog classes.".to_owned(),
+            hero_image: "/assets/cooperco-pet-services-hero.webp".to_owned(),
         },
-        stats: vec![
-            Stat {
-                label: "Facebook likes".to_owned(),
-                value: "177".to_owned(),
-            },
-            Stat {
-                label: "Followers".to_owned(),
-                value: "177".to_owned(),
-            },
-            Stat {
-                label: "Reviews noted".to_owned(),
-                value: "3".to_owned(),
-            },
-        ],
+        stats: Vec::new(),
         services: vec![
             Service {
                 title: "Group dog classes".to_owned(),
-                summary: "Seasonal group classes help dogs practice calm focus, leash manners, and social learning around other pets.".to_owned(),
+                summary: "Ask about group dog class fit, preparation, and current availability.".to_owned(),
             },
             Service {
-                title: "Puppy classes and training questions".to_owned(),
-                summary: "Ask about age-appropriate puppy support, early manners, confidence building, and current class availability.".to_owned(),
+                title: "Puppy training".to_owned(),
+                summary: "Ask about age-appropriate puppy training, early manners, confidence building, and class fit.".to_owned(),
             },
             Service {
-                title: "Local pet service inquiries".to_owned(),
-                summary: "Share your pet details, goals, schedule needs, and location so Cooper & Co. can respond directly.".to_owned(),
+                title: "Dog training".to_owned(),
+                summary: "Share dog details, goals, location, and timing so Cooper & Co. can respond directly.".to_owned(),
             },
         ],
         updates: vec![Update {
-            title: "Ask about upcoming group dog classes".to_owned(),
-            summary: "Class times and openings can change. Contact Cooper & Co. for the latest dog training and group class schedule.".to_owned(),
-            source_label: "Current availability".to_owned(),
+            title: "Ask Cooper & Co. for current availability".to_owned(),
+            summary: "Use the inquiry form, phone, email, Facebook page, or Yelp listing to ask about dog training and group class next steps.".to_owned(),
+            source_label: "Contact".to_owned(),
         }],
         gallery: vec![
             GalleryImage {
-                src: "/assets/facebook-cooperco-gallery-1.webp".to_owned(),
-                alt: "Cooper & Co. pet services logo from the public Facebook page".to_owned(),
+                src: "/assets/puppy-training-lorain-county.webp".to_owned(),
+                alt: "Yellow puppy sitting on grass while a handler holds a treat".to_owned(),
+            },
+            GalleryImage {
+                src: "/assets/group-dog-classes-lorain-county.webp".to_owned(),
+                alt: "Dogs sitting on leash beside handlers during an outdoor group class".to_owned(),
             },
             GalleryImage {
                 src: "/assets/facebook-cooperco-gallery-2.webp".to_owned(),
-                alt: "Cooper & Co. pet services logo from the public Facebook page".to_owned(),
-            },
-            GalleryImage {
-                src: "/assets/facebook-cooperco-gallery-3.webp".to_owned(),
-                alt: "Cooper & Co. pet services logo from the public Facebook page".to_owned(),
+                alt: "Tan dog wearing a Cooper & Co. bandana near a waterfront".to_owned(),
             },
         ],
     }
@@ -1463,9 +1453,6 @@ mod tests {
     use super::*;
     use rocket::local::blocking::Client;
     use std::fs;
-    use std::sync::Mutex;
-
-    static ENV_LOCK: Mutex<()> = Mutex::new(());
 
     fn oauth_config() -> MicrosoftOAuthConfig {
         MicrosoftOAuthConfig {
@@ -1850,7 +1837,8 @@ mod tests {
 
         assert!(sitemap.contains("https://cooper-and-co.com/services/dog-training"));
         assert!(sitemap.contains("https://cooper-and-co.com/services/puppy-training"));
-        assert!(sitemap.contains("https://cooper-and-co.com/service-areas/lorain-oh"));
+        assert!(sitemap.contains("https://cooper-and-co.com/service-areas"));
+        assert!(!sitemap.contains("https://cooper-and-co.com/service-areas/lorain-oh"));
         assert!(sitemap.contains(
             "https://cooper-and-co.com/resources/what-to-expect-from-a-group-dog-training-class"
         ));
@@ -1884,6 +1872,10 @@ mod tests {
             assert_eq!(body.matches("<h1").count(), 1, "{path}");
             assert!(body.contains(r#"application/ld+json"#), "{path}");
             assert!(body.contains("/contact"), "{path}");
+            assert!(
+                body.contains("Elyria") || !path.contains("service-areas"),
+                "{path}"
+            );
         }
 
         env::remove_var("COOPERCO_STATIC_DIR");
@@ -1897,15 +1889,31 @@ mod tests {
         fs::create_dir_all(&dir).unwrap();
         let client = full_app_test_client(&dir);
 
-        let redirected = client.get("/service-area/mansfield-oh").dispatch();
-        assert_eq!(redirected.status(), Status::PermanentRedirect);
+        let redirected = client.get("/service-area/lorain-oh").dispatch();
+        assert_eq!(redirected.status(), Status::MovedPermanently);
         assert_eq!(
             redirected.headers().get_one("Location"),
             Some("/service-areas")
         );
 
+        let consolidated = client.get("/service-areas/elyria-oh").dispatch();
+        assert_eq!(consolidated.status(), Status::MovedPermanently);
+        assert_eq!(
+            consolidated.headers().get_one("Location"),
+            Some("/service-areas")
+        );
+
+        let obsolete_area = client.get("/service-area/mansfield-oh").dispatch();
+        assert_eq!(obsolete_area.status(), Status::Gone);
+
         let gone = client.get("/services/pet-sitting").dispatch();
         assert_eq!(gone.status(), Status::Gone);
+
+        let unknown = client.get("/unknown-cooper-page").dispatch();
+        assert_eq!(unknown.status(), Status::NotFound);
+        let unknown_body = unknown.into_string().unwrap();
+        assert!(!unknown_body
+            .contains("Cooper &amp; Co. dog training and pet services in Lorain County"));
 
         env::remove_var("COOPERCO_STATIC_DIR");
         fs::remove_dir_all(dir).unwrap();
@@ -1930,7 +1938,54 @@ mod tests {
             .unwrap()
             .contains(r#"<meta name="robots" content="noindex, nofollow">"#));
 
+        let robots = client.get("/robots.txt").dispatch();
+        assert_eq!(robots.status(), Status::Ok);
+        assert_eq!(
+            robots.headers().get_one("X-Robots-Tag"),
+            Some("noindex, nofollow")
+        );
+        assert_eq!(
+            robots.into_string().unwrap(),
+            "User-agent: *\nDisallow: /\n"
+        );
+
+        let sitemap = client.get("/sitemap.xml").dispatch();
+        assert_eq!(sitemap.status(), Status::Ok);
+        assert_eq!(
+            sitemap.headers().get_one("X-Robots-Tag"),
+            Some("noindex, nofollow")
+        );
+        assert!(!sitemap.into_string().unwrap().contains("<loc>"));
+
         env::remove_var("COOPERCO_NOINDEX");
+        env::remove_var("COOPERCO_STATIC_DIR");
+        fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn contact_page_form_submits_to_existing_backend_with_accessible_status() {
+        let _guard = ENV_LOCK.lock().unwrap_or_else(|error| error.into_inner());
+        let dir = env::temp_dir().join(format!("cooperco-contact-form-test-{}", Uuid::new_v4()));
+        fs::create_dir_all(&dir).unwrap();
+        let client = full_app_test_client(&dir);
+
+        let contact = client.get("/contact").dispatch();
+        assert_eq!(contact.status(), Status::Ok);
+        let body = contact.into_string().unwrap();
+        assert!(body.contains(r#"action="/api/inquiries""#));
+        assert!(body.contains(r#"data-inquiry-form"#));
+        assert!(body.contains(r#"role="status" aria-live="polite""#));
+        assert!(body.contains("form.dataset.submitting"));
+
+        let response = client
+            .post("/api/inquiries")
+            .header(rocket::http::ContentType::JSON)
+            .body(
+                r#"{"name":"Customer","email":"customer@example.test","city_or_zip":"Elyria","message":"We want help with leash skills.","consent_acknowledged":true,"preferred_contact_method":"email","service_of_interest":"dog training","website":""}"#,
+            )
+            .dispatch();
+        assert_eq!(response.status(), Status::Created);
+
         env::remove_var("COOPERCO_STATIC_DIR");
         fs::remove_dir_all(dir).unwrap();
     }

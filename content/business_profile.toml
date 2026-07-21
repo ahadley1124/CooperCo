@@ -7,7 +7,7 @@ phone = "(440) 276-1716"
 phone_e164 = "+14402761716"
 email = "cooper.copetservices@gmail.com"
 public_address = ""
-public_address_status = "requires_owner_confirmation"
+public_address_status = "not_published"
 facebook_url = "https://www.facebook.com/CooperAndCoPet"
 yelp_url = "https://m.yelp.com/biz/cooper-and-company-elyria"
 
@@ -27,54 +27,29 @@ name = "Group dog classes"
 status = "confirmed_by_repository_evidence"
 
 [[service_areas]]
-slug = "lorain-oh"
-name = "Lorain, OH"
-status = "Confirmed"
-
-[[service_areas]]
 slug = "elyria-oh"
 name = "Elyria, OH"
-status = "Unconfirmed"
+status = "Served"
+
+[[service_areas]]
+slug = "lorain-oh"
+name = "Lorain, OH"
+status = "Served"
 
 [[service_areas]]
 slug = "amherst-oh"
 name = "Amherst, OH"
-status = "Unconfirmed"
-
-[[service_areas]]
-slug = "sheffield-lake-oh"
-name = "Sheffield Lake, OH"
-status = "Unconfirmed"
-
-[[service_areas]]
-slug = "sheffield-village-oh"
-name = "Sheffield Village, OH"
-status = "Unconfirmed"
+status = "Served"
 
 [[service_areas]]
 slug = "avon-oh"
 name = "Avon, OH"
-status = "Unconfirmed"
-
-[[service_areas]]
-slug = "avon-lake-oh"
-name = "Avon Lake, OH"
-status = "Unconfirmed"
+status = "Served"
 
 [[service_areas]]
 slug = "north-ridgeville-oh"
 name = "North Ridgeville, OH"
-status = "Unconfirmed"
-
-[[service_areas]]
-slug = "oberlin-oh"
-name = "Oberlin, OH"
-status = "Unconfirmed"
-
-[[service_areas]]
-slug = "vermilion-oh"
-name = "Vermilion, OH"
-status = "Unconfirmed"
+status = "Served"
 
 [owner_confirmation_required]
 exact_confirmed_services = true

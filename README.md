@@ -61,7 +61,6 @@ The initial content was taken from the public Facebook page at `https://www.face
 - Phone: `(440) 276-1716`
 - Email: `cooper.copetservices@gmail.com`
 - Yelp listing: `https://m.yelp.com/biz/cooper-and-company-elyria`
-- Visible stats: 177 likes and 177 followers
 - Visible update: summer group classes announcement from May 10
 
 ## Run Locally
@@ -295,10 +294,10 @@ The frontend build also copies static fallback files from `frontend/public/robot
 The current SEO foundation includes confirmed public pages for:
 
 - Services: dog training, puppy training, and group dog classes.
-- Service areas: Lorain, Ohio. Nearby Lorain County communities are stored as unconfirmed candidates and are not included as indexable location pages.
+- Service area: Lorain County, Ohio, including Elyria, Lorain, Amherst, Avon, and North Ridgeville.
 - Resources: practical dog training, puppy training, and group-class articles.
 
-Owner-confirmation fields are tracked in `content/business_profile.toml` and `docs/CONTENT_REQUIREMENTS.md`. Do not publish additional services, locations, prices, hours, testimonials, credentials, or policy claims until the owner confirms them.
+Content guardrails are tracked in `content/business_profile.toml` and `docs/CONTENT_REQUIREMENTS.md`. Do not publish additional services, prices, hours, testimonials, credentials, addresses, or policy claims without verification.
 
 ### Search Console and analytics hooks
 

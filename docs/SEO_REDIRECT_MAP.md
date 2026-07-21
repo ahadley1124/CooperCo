@@ -1,20 +1,16 @@
 # SEO Redirect Map
 
-| Old URL | New URL | Status | Rationale |
+| Old URL pattern | New URL | Status | Rationale |
 |---|---:|---:|---|
-| `/service-area` | `/service-areas` | 308 | Replace singular route with current service-area index. |
-| `/service-area/lorain-oh` | `/service-areas/lorain-oh` | 308 | Preserve confirmed Lorain page under the new route hierarchy. |
-| `/service-area/mansfield-oh` | `/service-areas` | 308 | Retire obsolete non-Lorain targeting and send users to current area status. |
-| `/service-area/ontario-oh` | `/service-areas` | 308 | Retire obsolete non-Lorain targeting and send users to current area status. |
-| `/service-area/lexington-oh` | `/service-areas` | 308 | Retire obsolete non-Lorain targeting and send users to current area status. |
-| `/service-area/bellville-oh` | `/service-areas` | 308 | Retire obsolete non-Lorain targeting and send users to current area status. |
-| `/service-area/ashland-oh` | `/service-areas` | 308 | Retire obsolete non-Lorain targeting and send users to current area status. |
-| `/service-area/galion-oh` | `/service-areas` | 308 | Retire obsolete non-Lorain targeting and send users to current area status. |
-| `/services/dog-walking` | none | 410 | Service was not confirmed for publication. |
-| `/services/pet-sitting` | none | 410 | Service was not confirmed for publication. |
-| `/services/house-sitting` | none | 410 | Service was not confirmed for publication. |
-| `/services/puppy-care` | none | 410 | Replaced by confirmed `/services/puppy-training`. |
-| `/services/dog-adventures` | none | 410 | Service was not confirmed for publication. |
-| `/resources/local-dog-walking-checklist` | none | 410 | Retired thin placeholder article. |
-| `/resources/puppy-care-first-week` | none | 410 | Retired thin placeholder article. |
-| `/resources/dog-adventure-safety` | none | 410 | Retired thin placeholder article. |
+| `/service-area` | `/service-areas` | 301 | Replace singular route with the current consolidated service-area page. |
+| `/service-area/{current-lorain-county-city}` | `/service-areas` | 301 | Current city examples resolve to the consolidated service-area page instead of thin city pages. |
+| `/service-areas/{current-lorain-county-city}` | `/service-areas` | 301 | Retire prior city-page URLs in favor of the consolidated service-area page. |
+| Prior non-Lorain service-area URLs | none | 410 | Retire obsolete geography without implying an equivalent current destination. |
+| `/services/dog-walking` | none | 410 | Service was not verified for publication. |
+| `/services/pet-sitting` | none | 410 | Service was not verified for publication. |
+| `/services/house-sitting` | none | 410 | Service was not verified for publication. |
+| `/services/puppy-care` | none | 410 | Replaced by the current puppy-training page. |
+| `/services/dog-adventures` | none | 410 | Service was not verified for publication. |
+| Prior retired thin resource URLs | none | 410 | Retired resource pages without equivalent current content. |
+
+Unknown URLs that are not listed here return `404 Not Found`.

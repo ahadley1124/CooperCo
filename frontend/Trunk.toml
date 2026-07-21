@@ -2,6 +2,11 @@
 target = "index.html"
 dist = "dist"
 
+[[hooks]]
+stage = "post_build"
+command = "node"
+command_arguments = ["../scripts/strip-generated-js-comments.mjs", "dist"]
+
 [serve]
 port = 9000
 
@@ -10,4 +15,3 @@ backend = "http://127.0.0.1:9001/api/"
 
 [[proxy]]
 backend = "http://127.0.0.1:9001/auth/"
-
