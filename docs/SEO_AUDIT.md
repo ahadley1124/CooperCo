@@ -1,6 +1,6 @@
 # Cooper & Co. SEO Audit
 
-Date: 2026-07-19
+Date: 2026-07-21
 
 ## Architecture
 
@@ -13,9 +13,9 @@ Date: 2026-07-19
 ## Problems Found
 
 - Marketing routes were client-rendered and did not return route-specific crawlable HTML before WebAssembly.
-- Metadata, JSON-LD, sitemap entries, and frontend route constants contained obsolete north-central Ohio targeting.
+- Metadata, JSON-LD, sitemap entries, and frontend route constants contained obsolete non-Lorain County targeting.
 - Unconfirmed services and thin doorway-style service/location pages were published.
-- Visible placeholder owner notes appeared in production-facing copy.
+- Internal verification notes appeared in production-facing copy.
 - Static robots and sitemap fallbacks included staging signals.
 - The skip link targeted contact instead of main content.
 - Facebook follower counts were used as trust content.
@@ -27,18 +27,22 @@ Date: 2026-07-19
 - Canonicals and sitemap URLs use `https://cooper-and-co.com`.
 - Staging/beta environments return `Disallow: /` in robots and add `X-Robots-Tag: noindex, nofollow`.
 - Only confirmed service pages are published: dog training, puppy training, and group dog classes.
-- Only the confirmed location page `/service-areas/lorain-oh` is indexable. Nearby communities remain unconfirmed in `content/business_profile.toml`.
-- Obsolete service-area URLs redirect to `/service-areas`; unconfirmed service/resource URLs return `410 Gone`.
+- The consolidated `/service-areas` page is indexable and lists Lorain County, including Elyria, Lorain, Amherst, Avon, and North Ridgeville.
+- Current city URL variants redirect with `301` to `/service-areas`; obsolete non-Lorain service-area URLs and retired unsupported service/resource URLs return `410 Gone`.
+- Unknown URLs return `404 Not Found` and do not return the homepage with HTTP 200.
+- JSON-LD uses address-free LocalBusiness/PetService, Service, FAQPage, BreadcrumbList, ImageObject, and WebSite data.
+- Beta/staging routes return noindex/nofollow signals and beta sitemap responses expose no URLs.
 
 ## Validation Results
 
 - `cargo fmt --all -- --check`: passed.
 - `cargo check --workspace`: passed.
-- `cargo test --workspace`: passed, 28 tests.
+- `cargo test --workspace`: passed, 31 tests.
 - `cargo clippy --workspace --all-targets --all-features -- -D warnings`: passed.
 - `trunk build --release --config frontend/Trunk.toml`: passed.
 - `cargo build -p backend --release`: passed.
-- Release-server raw route validation passed on high local ports because Windows refused port 9001 in this sandbox.
-- Staging noindex validation passed with `COOPERCO_NOINDEX=true`.
-- Internal broken-link crawl passed for 25 internal links.
+- Release-server route validation passed on `http://127.0.0.1:18081`; Windows refused an earlier lower test port in this sandbox.
+- Beta/noindex HTTP validation passed on `http://127.0.0.1:18082` with `COOPERCO_NOINDEX=true` and `PUBLIC_APP_URL=https://beta.cooper-and-co.com`.
+- Final built `frontend/dist` and captured release HTTP output were scanned for obsolete city names, `TODO`, placeholder/address fields, beta sitemap entries, and unsupported service claims; no matches were found.
+- The local `scripts/seo-audit.ps1` route audit passed against the release server.
 - Lighthouse, axe, `html-validate`, and `linkchecker` CLIs were not installed in the workspace environment.

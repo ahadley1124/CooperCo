@@ -10,17 +10,10 @@ use rocket::{
 use serde_json::{json, Value};
 
 const PRODUCTION_ORIGIN: &str = "https://cooper-and-co.com";
-const LASTMOD: &str = "2026-07-19";
+const LASTMOD: &str = "2026-07-21";
 const SOCIAL_IMAGE: &str = "/assets/cooperco-pet-services-hero.webp";
-const SOCIAL_IMAGE_ALT: &str = "Cooper & Co. dog training and pet service branding";
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-#[allow(dead_code)]
-pub enum LocationStatus {
-    Confirmed,
-    Unconfirmed,
-    NotServed,
-}
+const SOCIAL_IMAGE_ALT: &str =
+    "Black and tan dog on a leash in a park with dog-training cones in the background";
 
 #[derive(Clone, Copy, Debug)]
 pub struct BusinessProfile {
@@ -31,7 +24,6 @@ pub struct BusinessProfile {
     pub home_city: &'static str,
     pub state: &'static str,
     pub county: &'static str,
-    pub public_address: Option<&'static str>,
     pub facebook_url: &'static str,
     pub yelp_url: &'static str,
 }
@@ -54,7 +46,6 @@ pub struct ServiceDefinition {
 pub struct ServiceArea {
     pub slug: &'static str,
     pub name: &'static str,
-    pub status: LocationStatus,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -100,61 +91,30 @@ pub const BUSINESS: BusinessProfile = BusinessProfile {
     home_city: "Lorain",
     state: "Ohio",
     county: "Lorain County",
-    public_address: None,
     facebook_url: "https://www.facebook.com/CooperAndCoPet",
     yelp_url: "https://m.yelp.com/biz/cooper-and-company-elyria",
 };
 
 pub const SERVICE_AREAS: &[ServiceArea] = &[
     ServiceArea {
-        slug: "lorain-oh",
-        name: "Lorain, OH",
-        status: LocationStatus::Confirmed,
-    },
-    ServiceArea {
         slug: "elyria-oh",
         name: "Elyria, OH",
-        status: LocationStatus::Unconfirmed,
+    },
+    ServiceArea {
+        slug: "lorain-oh",
+        name: "Lorain, OH",
     },
     ServiceArea {
         slug: "amherst-oh",
         name: "Amherst, OH",
-        status: LocationStatus::Unconfirmed,
-    },
-    ServiceArea {
-        slug: "sheffield-lake-oh",
-        name: "Sheffield Lake, OH",
-        status: LocationStatus::Unconfirmed,
-    },
-    ServiceArea {
-        slug: "sheffield-village-oh",
-        name: "Sheffield Village, OH",
-        status: LocationStatus::Unconfirmed,
     },
     ServiceArea {
         slug: "avon-oh",
         name: "Avon, OH",
-        status: LocationStatus::Unconfirmed,
-    },
-    ServiceArea {
-        slug: "avon-lake-oh",
-        name: "Avon Lake, OH",
-        status: LocationStatus::Unconfirmed,
     },
     ServiceArea {
         slug: "north-ridgeville-oh",
         name: "North Ridgeville, OH",
-        status: LocationStatus::Unconfirmed,
-    },
-    ServiceArea {
-        slug: "oberlin-oh",
-        name: "Oberlin, OH",
-        status: LocationStatus::Unconfirmed,
-    },
-    ServiceArea {
-        slug: "vermilion-oh",
-        name: "Vermilion, OH",
-        status: LocationStatus::Unconfirmed,
     },
 ];
 
@@ -165,7 +125,7 @@ const SERVICE_FAQ: &[FaqItem] = &[
     },
     FaqItem {
         question: "Are prices listed online?",
-        answer: "Pricing is owner-confirmed during inquiry because the website does not yet have approved pricing rules.",
+        answer: "The website does not publish fixed prices. Use the contact form, phone, or email for current details from Cooper & Co.",
     },
     FaqItem {
         question: "Can Cooper & Co. help with medical concerns?",
@@ -177,13 +137,13 @@ pub const SERVICES: &[ServiceDefinition] = &[
     ServiceDefinition {
         slug: "dog-training",
         name: "Dog training",
-        page_title: "Dog Training in Lorain, Ohio | Cooper & Co.",
-        description: "Ask Cooper & Co. about dog training in Lorain, Ohio, including goals, current skills, class fit, and next steps for local pet families.",
+        page_title: "Dog Training in Lorain County, Ohio | Cooper & Co.",
+        description: "Ask Cooper & Co. about dog training in Lorain County, including Elyria, Lorain, Amherst, Avon, and North Ridgeville.",
         summary: "Dog training inquiries can cover leash manners, focus, everyday skills, and current training goals.",
         audience: "Appropriate for dog owners who want clearer expectations, practical skills, and help choosing a class or training path.",
         process: &[
             "Send an inquiry with your city, dog details, and training goals.",
-            "Cooper & Co. reviews fit, schedule, and the safest next step.",
+            "Cooper & Co. reviews fit, timing, and the next step.",
             "You receive current availability and preparation details directly from the business.",
         ],
         prepare: &[
@@ -202,11 +162,11 @@ pub const SERVICES: &[ServiceDefinition] = &[
         slug: "puppy-training",
         name: "Puppy training",
         page_title: "Puppy Training in Lorain County | Cooper & Co.",
-        description: "Ask about puppy training and age-appropriate class fit with Cooper & Co., based in Lorain and serving local pet owners.",
+        description: "Ask Cooper & Co. about puppy training in Lorain County, including Elyria, Lorain, Amherst, Avon, and North Ridgeville.",
         summary: "Puppy training inquiries focus on early manners, confidence, routines, and class readiness.",
         audience: "Appropriate for puppy owners who want early guidance without overwhelming a young dog.",
         process: &[
-            "Share puppy age, vaccination status as approved by the owner, and goals.",
+            "Share puppy age, relevant health details, and goals.",
             "Cooper & Co. confirms whether the current format is a fit.",
             "You receive current preparation details before attending a class or session.",
         ],
@@ -225,8 +185,8 @@ pub const SERVICES: &[ServiceDefinition] = &[
     ServiceDefinition {
         slug: "group-dog-classes",
         name: "Group dog classes",
-        page_title: "Group Dog Classes Near Lorain, OH | Cooper & Co.",
-        description: "Learn how to ask Cooper & Co. about group dog classes near Lorain, Ohio, including class fit, preparation, and availability.",
+        page_title: "Group Dog Classes in Lorain County | Cooper & Co.",
+        description: "Ask Cooper & Co. about group dog classes in Lorain County, including class fit, preparation, and availability.",
         summary: "Group dog class inquiries help determine class fit, readiness, goals, and current openings.",
         audience: "Appropriate for owners who want structured practice around other dogs and people when group settings are a fit.",
         process: &[
@@ -415,11 +375,21 @@ impl<'r> Responder<'r, 'static> for MarketingResponse {
                 response.sized_body(body.len(), std::io::Cursor::new(body));
                 response.ok()
             }
-            MarketingResponse::Xml(body) => RawXml(body).respond_to(request),
+            MarketingResponse::Xml(body) => {
+                let response = RawXml(body).respond_to(request)?;
+                let mut builder = Response::build_from(response);
+                if staging_noindex_enabled() {
+                    builder.header(Header::new("X-Robots-Tag", "noindex, nofollow"));
+                }
+                builder.ok()
+            }
             MarketingResponse::Text(body) => {
                 let mut response = Response::build();
                 response.status(Status::Ok);
                 response.header(ContentType::Plain);
+                if staging_noindex_enabled() {
+                    response.header(Header::new("X-Robots-Tag", "noindex, nofollow"));
+                }
                 response.sized_body(body.len(), std::io::Cursor::new(body));
                 response.ok()
             }
@@ -470,7 +440,7 @@ async fn render_marketing_path(path: &str) -> MarketingResponse {
 
     let normalized = normalize_path(path);
     if normalized != path && path != "/" {
-        return MarketingResponse::Redirect(Redirect::permanent(normalized));
+        return MarketingResponse::Redirect(Redirect::moved(normalized));
     }
 
     if normalized == "/admin" || normalized.starts_with("/admin/") {
@@ -482,7 +452,7 @@ async fn render_marketing_path(path: &str) -> MarketingResponse {
     }
 
     if let Some(target) = obsolete_redirect(&normalized) {
-        return MarketingResponse::Redirect(Redirect::permanent(target));
+        return MarketingResponse::Redirect(Redirect::moved(target));
     }
 
     if is_gone_path(&normalized) {
@@ -562,6 +532,11 @@ pub fn robots_body() -> String {
 }
 
 pub fn sitemap_body() -> String {
+    if staging_noindex_enabled() {
+        return r#"<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"></urlset>"#
+            .to_owned();
+    }
+
     let urls = indexable_paths()
         .iter()
         .map(|path| {
@@ -599,11 +574,6 @@ pub fn indexable_paths() -> Vec<String> {
     .collect::<Vec<_>>();
 
     paths.extend(
-        confirmed_service_areas()
-            .iter()
-            .map(|area| format!("/service-areas/{}", area.slug)),
-    );
-    paths.extend(
         ARTICLES
             .iter()
             .map(|article| format!("/resources/{}", article.slug)),
@@ -630,10 +600,8 @@ pub fn page_for_path(path: &str) -> Option<Page> {
                     .map(service_page);
             }
             if let Some(slug) = path.strip_prefix("/service-areas/") {
-                return confirmed_service_areas()
-                    .iter()
-                    .find(|area| area.slug == slug)
-                    .map(|area| location_page(area));
+                let _ = slug;
+                return None;
             }
             if let Some(slug) = path.strip_prefix("/resources/") {
                 return ARTICLES
@@ -668,16 +636,33 @@ pub fn validation_errors() -> Vec<String> {
         if !canonicals.insert(page.path.clone()) {
             errors.push(format!("duplicate canonical path: {}", page.path));
         }
-        if path.starts_with("/service-areas/")
-            && confirmed_service_areas()
-                .iter()
-                .all(|area| format!("/service-areas/{}", area.slug) != path)
-        {
-            errors.push(format!("indexable location is unconfirmed: {path}"));
-        }
         let rendered = render_page(&page);
-        for blocked in ["TODO", "placeholder.example", "example.com"] {
-            if rendered.contains(blocked) {
+        for blocked in [
+            "TODO",
+            "placeholder",
+            "example.com",
+            "owner-confirm",
+            "owner approval",
+            "owner-approved",
+            "repository evidence",
+            "candidate",
+            "unconfirmed",
+            "Mansfield",
+            "Ontario",
+            "Lexington",
+            "Bellville",
+            "Ashland",
+            "Galion",
+            "Pet Waste Removal",
+            "Dog Walking",
+            "Pet Sitting",
+            "House Sitting",
+            "Dog Adventures",
+        ] {
+            if rendered
+                .to_ascii_lowercase()
+                .contains(&blocked.to_ascii_lowercase())
+            {
                 errors.push(format!("production-facing {blocked} remains on {path}"));
             }
         }
@@ -734,16 +719,16 @@ fn home() -> Page {
   </picture>
   <div class="hero-copy">
     <p class="eyebrow">Pet service based in Lorain, Ohio</p>
-    <h1 id="home-title">Cooper &amp; Co. dog training and pet services in Lorain, Ohio</h1>
-    <p>Cooper &amp; Co. is based in Lorain and serves pet owners across Lorain County and nearby communities. Ask about dog training, puppy training, and group dog classes.</p>
+    <h1 id="home-title">Cooper &amp; Co. dog training and pet services in Lorain County</h1>
+    <p>Cooper &amp; Co. serves Lorain County, including Elyria, Lorain, Amherst, Avon, and North Ridgeville. Ask about dog training, puppy training, and group dog classes.</p>
     <div class="hero-actions"><a class="button primary" href="/contact">Request information</a><a class="button secondary" href="tel:{phone_e164}">{phone}</a></div>
   </div>
 </section>
-<section class="section" aria-labelledby="home-services"><div class="section-heading"><p class="eyebrow">Services</p><h2 id="home-services">Confirmed service pages</h2><p>These pages cover services supported by current repository evidence without adding unconfirmed claims.</p></div><div class="service-grid">{services}</div></section>
-<section class="section split" aria-labelledby="classes-overview"><div><p class="eyebrow">Classes</p><h2 id="classes-overview">Group and puppy training inquiries</h2><p>Class times, openings, requirements, and pricing should be confirmed directly with Cooper &amp; Co. before scheduling.</p></div><article class="update"><span>Current next step</span><h3>Share your goals before booking</h3><p>Use the inquiry form to describe your dog, location, goals, and preferred timeframe.</p><a href="/contact">Contact Cooper &amp; Co.</a></article></section>
-<section class="section" aria-labelledby="area-overview"><div class="section-heading"><p class="eyebrow">Service Area</p><h2 id="area-overview">Based in Lorain and focused on Lorain County</h2><p>The site only publishes indexable city pages when the owner marks a location confirmed.</p></div><div class="service-grid"><article class="card"><h3><a href="/service-areas/lorain-oh">Lorain, OH</a></h3><p>Lorain is the confirmed home-city service-area page.</p></article><article class="card"><h3><a href="/service-areas">Nearby communities</a></h3><p>Candidate nearby communities are documented for owner review before publication.</p></article><article class="card"><h3><a href="/contact">Confirm availability</a></h3><p>Contact Cooper &amp; Co. with your city or ZIP code and service goals.</p></article></div></section>
+<section class="section" aria-labelledby="home-services"><div class="section-heading"><p class="eyebrow">Services</p><h2 id="home-services">Dog training and class inquiries</h2><p>Use the current service pages to share dog details, training goals, location, and preferred timing.</p></div><div class="service-grid">{services}</div></section>
+<section class="section split" aria-labelledby="classes-overview"><div><p class="eyebrow">Classes</p><h2 id="classes-overview">Group and puppy training inquiries</h2><p>Use the contact options on this site for current class details and availability.</p></div><article class="update"><span>Current next step</span><h3>Share your goals before booking</h3><p>Use the inquiry form to describe your dog, location, goals, and preferred timeframe.</p><a href="/contact">Contact Cooper &amp; Co.</a></article></section>
+<section class="section" aria-labelledby="area-overview"><div class="section-heading"><p class="eyebrow">Service Area</p><h2 id="area-overview">Serving Lorain County</h2><p>Cooper &amp; Co. serves Lorain County, including Elyria, Lorain, Amherst, Avon, and North Ridgeville.</p></div><div class="service-grid"><article class="card"><h3><a href="/service-areas">Lorain County</a></h3><p>Review the current service-area page before sending an inquiry.</p></article><article class="card"><h3><a href="/contact">Ask about your location</a></h3><p>Include your city or ZIP code so Cooper &amp; Co. can respond with current fit.</p></article><article class="card"><h3><a href="tel:{phone_e164}">{phone}</a></h3><p>Call or text the listed business phone number for direct contact.</p></article></div></section>
 <section class="section" aria-labelledby="process"><div class="section-heading"><p class="eyebrow">Process</p><h2 id="process">How inquiries work</h2></div><div class="service-grid"><article class="card"><h3>1. Send details</h3><p>Provide your contact details, city or ZIP code, pet age, service interest, and goals.</p></article><article class="card"><h3>2. Confirm fit</h3><p>Cooper &amp; Co. can confirm availability, class fit, and any requirements directly.</p></article><article class="card"><h3>3. Plan next steps</h3><p>You receive the appropriate scheduling or follow-up path from the business.</p></article></div></section>
-<section class="section trust-section" aria-labelledby="trust"><div class="section-heading"><p class="eyebrow">Trust</p><h2 id="trust">Verified public facts only</h2><p>The website uses the confirmed business name, Lorain location, phone number, email, and public social links. Testimonials, credentials, insurance, hours, and policies are reserved for owner-approved content.</p></div></section>
+<section class="section trust-section" aria-labelledby="contact-options"><div class="section-heading"><p class="eyebrow">Contact</p><h2 id="contact-options">Use the listed contact options</h2><p>The website publishes Cooper &amp; Co.'s business name, Lorain County service area, phone number, email, Facebook page, and Yelp listing.</p></div></section>
 <section class="section faq" aria-labelledby="home-faq"><div class="section-heading"><p class="eyebrow">FAQ</p><h2 id="home-faq">Common questions</h2></div>{faq}</section>
 <section class="section" aria-labelledby="resource-preview"><div class="section-heading"><p class="eyebrow">Resources</p><h2 id="resource-preview">Helpful dog training articles</h2></div><div class="service-grid">{resources}</div></section>
 {contact_section}
@@ -754,21 +739,31 @@ fn home() -> Page {
         services = services,
         resources = resources,
         faq = faq_markup(&[
-            FaqItem { question: "Where is Cooper & Co. based?", answer: "Cooper & Co. is based in Lorain, Ohio." },
+            FaqItem { question: "Where does Cooper & Co. serve?", answer: "Cooper & Co. serves Lorain County, including Elyria, Lorain, Amherst, Avon, and North Ridgeville." },
             FaqItem { question: "Which services are published on the website?", answer: "The published service pages are dog training, puppy training, and group dog classes." },
-            FaqItem { question: "Are nearby communities served?", answer: "The homepage uses cautious Lorain County wording. Individual location pages are only published after owner confirmation." },
+            FaqItem { question: "How do I ask about my location?", answer: "Include your city or ZIP code in the inquiry form so Cooper & Co. can respond with current fit." },
         ]),
         contact_section = contact_section("Ask about dog training or classes"),
     );
 
     Page {
         path: "/".to_owned(),
-        title: "Cooper & Co. | Dog Training in Lorain, Ohio".to_owned(),
-        description: "Cooper & Co. is based in Lorain, Ohio. Ask about dog training, puppy training, and group dog classes for Lorain County pet owners.".to_owned(),
-        h1: "Cooper & Co. dog training and pet services in Lorain, Ohio".to_owned(),
+        title: "Cooper & Co. | Dog Training in Lorain County, Ohio".to_owned(),
+        description: "Cooper & Co. serves Lorain County, including Elyria, Lorain, Amherst, Avon, and North Ridgeville. Ask about dog training and classes.".to_owned(),
+        h1: "Cooper & Co. dog training and pet services in Lorain County".to_owned(),
         body,
         breadcrumbs: vec![("Home", "/".to_owned())],
-        schema: vec![organization_schema(), website_schema(), webpage_schema("/", "WebPage")],
+        schema: vec![
+            local_business_schema(),
+            website_schema(),
+            webpage_schema("/", "WebPage"),
+            image_object_schema(),
+            faq_schema("/", &[
+                FaqItem { question: "Where does Cooper & Co. serve?", answer: "Cooper & Co. serves Lorain County, including Elyria, Lorain, Amherst, Avon, and North Ridgeville." },
+                FaqItem { question: "Which services are published on the website?", answer: "The published service pages are dog training, puppy training, and group dog classes." },
+                FaqItem { question: "How do I ask about my location?", answer: "Include your city or ZIP code in the inquiry form so Cooper & Co. can respond with current fit." },
+            ]),
+        ],
         indexable: true,
     }
 }
@@ -776,10 +771,10 @@ fn home() -> Page {
 fn about() -> Page {
     basic_page(
         "/about",
-        "About Cooper & Co. in Lorain, Ohio | Cooper & Co.",
-        "Learn about Cooper & Co., a Lorain, Ohio pet-service business with dog training and class inquiry pages.",
+        "About Cooper & Co. in Lorain County | Cooper & Co.",
+        "Learn how to contact Cooper & Co. for dog training, puppy training, and group dog class inquiries in Lorain County.",
         "About Cooper & Co.",
-        "Cooper & Co. is a Lorain, Ohio pet-service business. The website is intentionally careful: it publishes confirmed contact and location information while reserving credentials, hours, pricing, testimonials, and policy details for owner approval.",
+        "Cooper & Co. serves Lorain County, including Elyria, Lorain, Amherst, Avon, and North Ridgeville. Use the listed phone, email, Facebook, Yelp, or inquiry form to ask about dog training, puppy training, and group dog classes.",
         "AboutPage",
     )
 }
@@ -787,13 +782,13 @@ fn about() -> Page {
 fn services_index() -> Page {
     let cards = SERVICES.iter().map(service_card).collect::<String>();
     let body = format!(
-        r#"<section class="section page-hero" aria-labelledby="services-title"><p class="eyebrow">Services</p><h1 id="services-title">Dog training services from Cooper &amp; Co.</h1><p>Use these pages to understand service fit and what to include when contacting Cooper &amp; Co.</p></section><section class="section"><div class="service-grid">{cards}</div></section>{contact}"#,
+        r#"<section class="section page-hero" aria-labelledby="services-title"><p class="eyebrow">Services</p><h1 id="services-title">Dog training services from Cooper &amp; Co.</h1><p>Use these pages to share dog details, training goals, Lorain County location, and preferred timing.</p></section><section class="section"><div class="service-grid">{cards}</div></section>{contact}"#,
         contact = contact_section("Ask which training option fits your dog")
     );
     Page {
         path: "/services".to_owned(),
-        title: "Dog Training Services in Lorain, OH | Cooper & Co.".to_owned(),
-        description: "Explore Cooper & Co. dog training, puppy training, and group class inquiry pages for Lorain-area pet owners.".to_owned(),
+        title: "Dog Training Services in Lorain County | Cooper & Co.".to_owned(),
+        description: "Explore Cooper & Co. dog training, puppy training, and group dog class inquiry pages for Lorain County pet owners.".to_owned(),
         h1: "Dog training services from Cooper & Co.".to_owned(),
         body,
         breadcrumbs: vec![("Home", "/".to_owned()), ("Services", "/services".to_owned())],
@@ -813,7 +808,7 @@ fn service_page(service: &ServiceDefinition) -> Page {
         r#"<section class="section page-hero" aria-labelledby="service-title"><p class="eyebrow">Service</p><h1 id="service-title">{h1}</h1><p>{summary}</p><div class="hero-actions"><a class="button primary" href="/contact">Request information</a><a class="button secondary on-light" href="tel:{phone_e164}">{phone}</a></div></section>
 <section class="section" aria-labelledby="service-fit"><div class="section-heading"><p class="eyebrow">Fit</p><h2 id="service-fit">Who this may help</h2><p>{audience}</p></div></section>
 <section class="section split" aria-labelledby="service-process"><div><p class="eyebrow">Process</p><h2 id="service-process">Expected inquiry process</h2>{process}</div><div><p class="eyebrow">Prepare</p><h2>What to share</h2>{prepare}</div></section>
-<section class="section" aria-labelledby="availability"><div class="section-heading"><p class="eyebrow">Availability</p><h2 id="availability">Geographic availability</h2><p>Cooper &amp; Co. is based in Lorain, Ohio. For other Lorain County communities, submit your city or ZIP code so the business can confirm fit.</p></div><a class="button secondary on-light" href="/service-areas">View service-area status</a></section>
+<section class="section" aria-labelledby="availability"><div class="section-heading"><p class="eyebrow">Availability</p><h2 id="availability">Lorain County service area</h2><p>Cooper &amp; Co. serves Lorain County, including Elyria, Lorain, Amherst, Avon, and North Ridgeville. Include your city or ZIP code when you ask about fit.</p></div><a class="button secondary on-light" href="/service-areas">View service area</a></section>
 <section class="section faq" aria-labelledby="service-faq"><div class="section-heading"><p class="eyebrow">FAQ</p><h2 id="service-faq">Service questions</h2></div>{faq}</section>
 <section class="section" aria-labelledby="related"><div class="section-heading"><p class="eyebrow">Resources</p><h2 id="related">Related resources</h2></div><div class="service-grid">{related}</div></section>
 {contact}"#,
@@ -840,76 +835,36 @@ fn service_page(service: &ServiceDefinition) -> Page {
             ("Services", "/services".to_owned()),
             (service.name, path.clone()),
         ],
-        schema: vec![webpage_schema(&path, "WebPage"), service_schema(service)],
+        schema: vec![
+            webpage_schema(&path, "WebPage"),
+            service_schema(service),
+            faq_schema(&path, service.faq),
+        ],
         indexable: true,
     }
 }
 
 fn service_areas_index() -> Page {
-    let confirmed = confirmed_service_areas()
+    let areas = SERVICE_AREAS
         .iter()
-        .map(|area| {
-            format!(
-                r#"<article class="card"><h3><a href="/service-areas/{slug}">{name}</a></h3><p>Confirmed public service-area page.</p></article>"#,
-                slug = area.slug,
-                name = escape(area.name)
-            )
-        })
-        .collect::<String>();
-    let candidates = SERVICE_AREAS
-        .iter()
-        .filter(|area| area.status == LocationStatus::Unconfirmed)
         .map(|area| format!("<li>{}</li>", escape(area.name)))
         .collect::<String>();
     let body = format!(
-        r#"<section class="section page-hero" aria-labelledby="areas-title"><p class="eyebrow">Service Areas</p><h1 id="areas-title">Cooper &amp; Co. service areas</h1><p>Cooper &amp; Co. is based in Lorain, Ohio. Additional Lorain County communities are candidates until the owner confirms active coverage.</p></section><section class="section"><div class="section-heading"><h2>Confirmed location pages</h2></div><div class="service-grid">{confirmed}</div></section><section class="section"><div class="section-heading"><h2>Candidate nearby communities</h2><p>These communities are stored as unconfirmed and are not included in the sitemap as location pages.</p></div><ul>{candidates}</ul></section>{contact}"#,
+        r#"<section class="section page-hero" aria-labelledby="areas-title"><p class="eyebrow">Service Areas</p><h1 id="areas-title">Cooper &amp; Co. service area</h1><p>Cooper &amp; Co. serves Lorain County, including Elyria, Lorain, Amherst, Avon, and North Ridgeville.</p></section><section class="section"><div class="section-heading"><h2>Lorain County communities listed on this site</h2><p>Include your city or ZIP code when sending an inquiry.</p></div><ul>{areas}</ul></section>{contact}"#,
+        areas = areas,
         contact = contact_section("Confirm service availability in your city")
     );
     Page {
         path: "/service-areas".to_owned(),
         title: "Service Areas in Lorain County | Cooper & Co.".to_owned(),
-        description: "See Cooper & Co. service-area status for Lorain, Ohio and nearby Lorain County communities requiring owner confirmation.".to_owned(),
-        h1: "Cooper & Co. service areas".to_owned(),
+        description: "Cooper & Co. serves Lorain County, including Elyria, Lorain, Amherst, Avon, and North Ridgeville, Ohio.".to_owned(),
+        h1: "Cooper & Co. service area".to_owned(),
         body,
         breadcrumbs: vec![
             ("Home", "/".to_owned()),
             ("Service Areas", "/service-areas".to_owned()),
         ],
         schema: vec![webpage_schema("/service-areas", "WebPage")],
-        indexable: true,
-    }
-}
-
-fn location_page(area: &ServiceArea) -> Page {
-    let services = SERVICES.iter().map(service_card).collect::<String>();
-    let body = format!(
-        r#"<section class="section page-hero" aria-labelledby="location-title"><p class="eyebrow">Confirmed Location</p><h1 id="location-title">Dog training in {name}</h1><p>Cooper &amp; Co. is based in {home_city}, {state}. This page is published because {name} is the confirmed home-city service area.</p><div class="hero-actions"><a class="button primary" href="/contact">Request information</a><a class="button secondary on-light" href="/services">View services</a></div></section><section class="section" aria-labelledby="location-services"><div class="section-heading"><p class="eyebrow">Services</p><h2 id="location-services">Services available for inquiry</h2><p>Ask about scheduling, class fit, and requirements before booking.</p></div><div class="service-grid">{services}</div></section><section class="section faq" aria-labelledby="location-faq"><div class="section-heading"><p class="eyebrow">FAQ</p><h2 id="location-faq">Local questions</h2></div>{faq}</section>{contact}"#,
-        name = escape(area.name),
-        home_city = BUSINESS.home_city,
-        state = BUSINESS.state,
-        services = services,
-        faq = faq_markup(&[
-            FaqItem { question: "Is there a public office address?", answer: "No public street address is published until the owner confirms a customer-facing address policy." },
-            FaqItem { question: "Can I ask about nearby communities?", answer: "Yes. Include your city or ZIP code in the inquiry so Cooper & Co. can confirm current availability." },
-        ]),
-        contact = contact_section("Ask about local scheduling"),
-    );
-    let path = format!("/service-areas/{}", area.slug);
-    Page {
-        path: path.clone(),
-        title: format!("Dog Training in {} | Cooper & Co.", area.name),
-        description: format!(
-            "Ask Cooper & Co. about dog training, puppy training, and group dog classes in {}.",
-            area.name
-        ),
-        h1: format!("Dog training in {}", area.name),
-        body,
-        breadcrumbs: vec![
-            ("Home", "/".to_owned()),
-            ("Service Areas", "/service-areas".to_owned()),
-            (area.name, path.clone()),
-        ],
-        schema: vec![webpage_schema(&path, "WebPage"), local_business_schema()],
         indexable: true,
     }
 }
@@ -989,8 +944,8 @@ fn contact() -> Page {
     );
     Page {
         path: "/contact".to_owned(),
-        title: "Contact Cooper & Co. in Lorain, Ohio".to_owned(),
-        description: "Contact Cooper & Co. by phone, email, Facebook, or inquiry form about Lorain-area dog training and classes.".to_owned(),
+        title: "Contact Cooper & Co. in Lorain County".to_owned(),
+        description: "Contact Cooper & Co. by phone, email, Facebook, Yelp, or inquiry form about Lorain County dog training and classes.".to_owned(),
         h1: "Contact Cooper & Co.".to_owned(),
         body,
         breadcrumbs: vec![("Home", "/".to_owned()), ("Contact", "/contact".to_owned())],
@@ -1001,23 +956,31 @@ fn contact() -> Page {
 
 fn faq_page() -> Page {
     let body = format!(
-        r#"<section class="section page-hero" aria-labelledby="faq-title"><p class="eyebrow">FAQ</p><h1 id="faq-title">Cooper &amp; Co. questions</h1><p>Answers are limited to confirmed website information. Ask the owner directly for current prices, requirements, hours, and availability.</p></section><section class="section faq">{faq}</section>{contact}"#,
+        r#"<section class="section page-hero" aria-labelledby="faq-title"><p class="eyebrow">FAQ</p><h1 id="faq-title">Cooper &amp; Co. questions</h1><p>Use these answers to decide what to include when contacting Cooper &amp; Co.</p></section><section class="section faq">{faq}</section>{contact}"#,
         faq = faq_markup(&[
-            FaqItem { question: "What services are listed?", answer: "Dog training, puppy training, and group dog classes are the confirmed service pages." },
-            FaqItem { question: "Where is Cooper & Co. based?", answer: "Cooper & Co. is based in Lorain, Ohio." },
-            FaqItem { question: "Are hours or prices published?", answer: "Hours and prices require owner confirmation and are not published as fixed claims." },
+            FaqItem { question: "What services are listed?", answer: "The website lists dog training, puppy training, and group dog classes." },
+            FaqItem { question: "Where does Cooper & Co. serve?", answer: "Cooper & Co. serves Lorain County, including Elyria, Lorain, Amherst, Avon, and North Ridgeville." },
+            FaqItem { question: "Are hours or prices published?", answer: "The website does not publish fixed hours or prices. Use the contact form, phone, or email for current details." },
             FaqItem { question: "What should I send?", answer: "Send your contact details, city or ZIP code, pet name and age, service interest, goals, and preferred timeframe." },
         ]),
         contact = contact_section("Still have a question?"),
     );
     Page {
         path: "/faq".to_owned(),
-        title: "FAQ | Cooper & Co. Dog Training in Lorain".to_owned(),
-        description: "Find answers about Cooper & Co. dog training inquiries, service-area confirmation, pricing policy, and contact details.".to_owned(),
+        title: "FAQ | Cooper & Co. Dog Training in Lorain County".to_owned(),
+        description: "Find answers about Cooper & Co. dog training inquiries, Lorain County service area, contact details, and what to include.".to_owned(),
         h1: "Cooper & Co. questions".to_owned(),
         body,
         breadcrumbs: vec![("Home", "/".to_owned()), ("FAQ", "/faq".to_owned())],
-        schema: vec![webpage_schema("/faq", "FAQPage")],
+        schema: vec![
+            webpage_schema("/faq", "WebPage"),
+            faq_schema("/faq", &[
+                FaqItem { question: "What services are listed?", answer: "The website lists dog training, puppy training, and group dog classes." },
+                FaqItem { question: "Where does Cooper & Co. serve?", answer: "Cooper & Co. serves Lorain County, including Elyria, Lorain, Amherst, Avon, and North Ridgeville." },
+                FaqItem { question: "Are hours or prices published?", answer: "The website does not publish fixed hours or prices. Use the contact form, phone, or email for current details." },
+                FaqItem { question: "What should I send?", answer: "Send your contact details, city or ZIP code, pet name and age, service interest, goals, and preferred timeframe." },
+            ]),
+        ],
         indexable: true,
     }
 }
@@ -1077,11 +1040,16 @@ fn render_page(page: &Page) -> String {
     } else {
         "index, follow, max-image-preview:large"
     };
+    let mut graph = page.schema.clone();
+    if page.breadcrumbs.len() > 1 {
+        graph.push(breadcrumb_schema(&page.breadcrumbs));
+    }
     let schema = json!({
         "@context": "https://schema.org",
-        "@graph": page.schema
+        "@graph": graph
     });
     let hooks = verification_and_analytics_hooks();
+    let inquiry_script = inquiry_form_script();
     format!(
         r##"<!doctype html>
 <html lang="en">
@@ -1095,6 +1063,10 @@ fn render_page(page: &Page) -> String {
 <link rel="icon" type="image/png" href="/assets/favicon.png">
 <link rel="stylesheet" href="/styles.css">
 <meta name="theme-color" content="#285c4d">
+<meta name="application-name" content="{site_name}">
+<meta name="apple-mobile-web-app-title" content="{site_name}">
+<meta name="geo.region" content="US-OH">
+<meta name="geo.placename" content="Lorain County, Ohio">
 <meta property="og:type" content="website">
 <meta property="og:locale" content="en_US">
 <meta property="og:site_name" content="{site_name}">
@@ -1103,6 +1075,9 @@ fn render_page(page: &Page) -> String {
 <meta property="og:url" content="{canonical}">
 <meta property="og:image" content="{origin}{social_image}">
 <meta property="og:image:alt" content="{social_alt}">
+<meta property="og:image:type" content="image/webp">
+<meta property="og:image:width" content="1600">
+<meta property="og:image:height" content="900">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="{title}">
 <meta name="twitter:description" content="{description}">
@@ -1119,6 +1094,7 @@ fn render_page(page: &Page) -> String {
 {body}
 </main>
 {footer}
+{inquiry_script}
 </body>
 </html>"##,
         robots = robots,
@@ -1135,6 +1111,7 @@ fn render_page(page: &Page) -> String {
         breadcrumbs = breadcrumbs(&page.breadcrumbs),
         body = page.body,
         footer = footer(),
+        inquiry_script = inquiry_script,
     )
 }
 
@@ -1206,7 +1183,7 @@ fn contact_section(title: &str) -> String {
 }
 
 fn contact_form() -> String {
-    r#"<form aria-label="Pet service inquiry form" method="post" action="/api/inquiries">
+    r#"<form aria-label="Pet service inquiry form" method="post" action="/api/inquiries" data-inquiry-form aria-describedby="form-status">
 <label for="name">Name<input id="name" name="name" autocomplete="name" required></label>
 <label for="email">Email<input id="email" name="email" type="email" autocomplete="email" required></label>
 <label for="phone">Phone<input id="phone" name="phone" type="tel" autocomplete="tel"></label>
@@ -1217,13 +1194,67 @@ fn contact_form() -> String {
 <label for="service_of_interest">Service of interest<select id="service_of_interest" name="service_of_interest"><option>Dog training</option><option>Puppy training</option><option>Group dog classes</option><option>Not sure</option></select></label>
 <label for="preferred_timeframe">Preferred timeframe<input id="preferred_timeframe" name="preferred_timeframe"></label>
 <label class="wide" for="message">Goals or needs<textarea id="message" name="message" required></textarea></label>
-<label class="wide consent" for="consent_acknowledged"><input id="consent_acknowledged" name="consent_acknowledged" type="checkbox" required> I consent to Cooper &amp; Co. using this information to respond to my inquiry.</label>
+<label class="wide consent" for="consent_acknowledged"><input id="consent_acknowledged" name="consent_acknowledged" type="checkbox" value="true" required> I consent to Cooper &amp; Co. using this information to respond to my inquiry.</label>
 <label class="hp" for="website">Website<input id="website" name="website" tabindex="-1" autocomplete="off"></label>
 <p class="privacy-note wide">Do not submit emergency, financial, or private medical information through this form.</p>
-<button class="button primary" type="submit">Send inquiry</button>
-<p class="form-status" role="status" aria-live="polite"></p>
+<button class="button primary" type="submit" data-submit-label="Send inquiry">Send inquiry</button>
+<p id="form-status" class="form-status" role="status" aria-live="polite"></p>
 </form>"#
         .to_owned()
+}
+
+fn inquiry_form_script() -> &'static str {
+    r#"<script>
+document.querySelectorAll("[data-inquiry-form]").forEach((form) => {
+  form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    if (form.dataset.submitting === "true") {
+      return;
+    }
+    const status = form.querySelector(".form-status");
+    const button = form.querySelector("button[type='submit']");
+    const formData = new FormData(form);
+    const payload = Object.fromEntries(formData.entries());
+    payload.consent_acknowledged = form.querySelector("[name='consent_acknowledged']")?.checked === true;
+    payload.website = form.querySelector("[name='website']")?.value || "";
+    form.dataset.submitting = "true";
+    if (button) {
+      button.disabled = true;
+      button.setAttribute("aria-busy", "true");
+      button.textContent = "Sending...";
+    }
+    if (status) {
+      status.textContent = "Sending inquiry...";
+    }
+    try {
+      const response = await fetch(form.action, {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify(payload)
+      });
+      if (!response.ok) {
+        const message = await response.text();
+        throw new Error(message || `Request failed with status ${response.status}`);
+      }
+      form.reset();
+      if (status) {
+        status.textContent = "Inquiry sent. Cooper & Co. can respond using the contact details provided.";
+      }
+    } catch (error) {
+      if (status) {
+        status.textContent = `Could not send inquiry. ${error.message}`;
+      }
+    } finally {
+      form.dataset.submitting = "false";
+      if (button) {
+        button.disabled = false;
+        button.removeAttribute("aria-busy");
+        button.textContent = button.dataset.submitLabel || "Send inquiry";
+      }
+    }
+  });
+});
+</script>"#
 }
 
 fn service_card(service: &ServiceDefinition) -> String {
@@ -1267,34 +1298,18 @@ fn faq_markup(items: &[FaqItem]) -> String {
         .collect()
 }
 
-fn organization_schema() -> Value {
-    let mut schema = json!({
-        "@type": ["Organization", "LocalBusiness", "ProfessionalService"],
+fn local_business_schema() -> Value {
+    json!({
+        "@type": ["LocalBusiness", "PetService"],
         "@id": format!("{}/#organization", canonical_origin()),
         "name": BUSINESS.name,
         "url": format!("{}/", canonical_origin()),
         "telephone": BUSINESS.phone_e164,
         "email": BUSINESS.email,
-        "image": format!("{}{}", canonical_origin(), SOCIAL_IMAGE),
-        "areaServed": [format!("{}, {}", BUSINESS.county, BUSINESS.state)],
-        "address": {
-            "@type": "PostalAddress",
-            "addressLocality": BUSINESS.home_city,
-            "addressRegion": "OH",
-            "addressCountry": "US"
-        },
+        "image": {"@id": format!("{}{}#image", canonical_origin(), SOCIAL_IMAGE)},
+        "areaServed": service_area_schema(),
         "sameAs": [BUSINESS.facebook_url, BUSINESS.yelp_url]
-    });
-
-    if let Some(public_address) = BUSINESS.public_address {
-        schema["address"]["streetAddress"] = json!(public_address);
-    }
-
-    schema
-}
-
-fn local_business_schema() -> Value {
-    organization_schema()
+    })
 }
 
 fn website_schema() -> Value {
@@ -1324,7 +1339,7 @@ fn service_schema(service: &ServiceDefinition) -> Value {
         "name": service.name,
         "description": service.summary,
         "provider": {"@id": format!("{}/#organization", canonical_origin())},
-        "areaServed": format!("{}, {}", BUSINESS.county, BUSINESS.state),
+        "areaServed": service_area_schema(),
         "serviceType": service.name
     })
 }
@@ -1356,17 +1371,69 @@ fn article_schema(article: &ResourceArticle) -> Value {
     })
 }
 
-fn confirmed_service_areas() -> Vec<&'static ServiceArea> {
-    SERVICE_AREAS
-        .iter()
-        .filter(|area| area.status == LocationStatus::Confirmed)
-        .collect()
+fn faq_schema(path: &str, items: &[FaqItem]) -> Value {
+    json!({
+        "@type": "FAQPage",
+        "@id": format!("{}{}#faq", canonical_origin(), path),
+        "url": format!("{}{}", canonical_origin(), path),
+        "mainEntity": items.iter().map(|item| json!({
+            "@type": "Question",
+            "name": item.question,
+            "acceptedAnswer": {
+                "@type": "Answer",
+                "text": item.answer
+            }
+        })).collect::<Vec<_>>()
+    })
+}
+
+fn breadcrumb_schema(items: &[(&'static str, String)]) -> Value {
+    json!({
+        "@type": "BreadcrumbList",
+        "itemListElement": items.iter().enumerate().map(|(index, (name, path))| json!({
+            "@type": "ListItem",
+            "position": index + 1,
+            "name": name,
+            "item": format!("{}{}", canonical_origin(), path)
+        })).collect::<Vec<_>>()
+    })
+}
+
+fn image_object_schema() -> Value {
+    json!({
+        "@type": "ImageObject",
+        "@id": format!("{}{}#image", canonical_origin(), SOCIAL_IMAGE),
+        "url": format!("{}{}", canonical_origin(), SOCIAL_IMAGE),
+        "contentUrl": format!("{}{}", canonical_origin(), SOCIAL_IMAGE),
+        "caption": SOCIAL_IMAGE_ALT,
+        "width": 1600,
+        "height": 900,
+        "encodingFormat": "image/webp"
+    })
+}
+
+fn service_area_schema() -> Vec<Value> {
+    let mut areas = vec![json!({
+        "@type": "AdministrativeArea",
+        "name": format!("{}, {}", BUSINESS.county, BUSINESS.state)
+    })];
+    areas.extend(SERVICE_AREAS.iter().map(|area| {
+        json!({
+            "@type": "City",
+            "name": area.name,
+            "containedInPlace": format!("{}, {}", BUSINESS.county, BUSINESS.state)
+        })
+    }));
+    areas
 }
 
 fn canonical_origin() -> String {
     env::var("PRODUCTION_SITE_URL")
         .ok()
-        .filter(|value| !value.trim().is_empty())
+        .filter(|value| {
+            let value = value.trim().to_ascii_lowercase();
+            !value.is_empty() && !value.contains("beta.") && !value.contains("staging")
+        })
         .unwrap_or_else(|| PRODUCTION_ORIGIN.to_owned())
         .trim_end_matches('/')
         .to_owned()
@@ -1442,23 +1509,20 @@ fn valid_token(value: &str) -> bool {
 }
 
 fn obsolete_redirect(path: &str) -> Option<&'static str> {
-    match path {
-        "/service-area/lorain-oh" => Some("/service-areas/lorain-oh"),
-        "/service-area" | "/service-area/" => Some("/service-areas"),
-        "/service-area/mansfield-oh"
-        | "/service-area/ontario-oh"
-        | "/service-area/lexington-oh"
-        | "/service-area/bellville-oh"
-        | "/service-area/ashland-oh"
-        | "/service-area/galion-oh"
-        | "/service-areas/mansfield-oh"
-        | "/service-areas/ontario-oh"
-        | "/service-areas/lexington-oh"
-        | "/service-areas/bellville-oh"
-        | "/service-areas/ashland-oh"
-        | "/service-areas/galion-oh" => Some("/service-areas"),
-        _ => None,
+    if matches!(path, "/service-area" | "/service-area/") {
+        return Some("/service-areas");
     }
+
+    if let Some(slug) = path
+        .strip_prefix("/service-area/")
+        .or_else(|| path.strip_prefix("/service-areas/"))
+    {
+        if SERVICE_AREAS.iter().any(|area| area.slug == slug) {
+            return Some("/service-areas");
+        }
+    }
+
+    None
 }
 
 fn is_gone_path(path: &str) -> bool {
@@ -1472,6 +1536,21 @@ fn is_gone_path(path: &str) -> bool {
             | "/resources/local-dog-walking-checklist"
             | "/resources/puppy-care-first-week"
             | "/resources/dog-adventure-safety"
+    ) || path
+        .strip_prefix("/service-area/")
+        .or_else(|| path.strip_prefix("/service-areas/"))
+        .is_some_and(obsolete_non_lorain_slug)
+}
+
+fn obsolete_non_lorain_slug(slug: &str) -> bool {
+    matches!(
+        slug,
+        "mansfield-oh"
+            | "ontario-oh"
+            | "lexington-oh"
+            | "bellville-oh"
+            | "ashland-oh"
+            | "galion-oh"
     )
 }
 
@@ -1518,8 +1597,17 @@ mod tests {
 
     #[test]
     fn sitemap_uses_only_indexable_lorain_routes() {
+        let _guard = crate::ENV_LOCK
+            .lock()
+            .unwrap_or_else(|error| error.into_inner());
+        env::remove_var("COOPERCO_NOINDEX");
+        env::remove_var("PUBLIC_APP_URL");
+        env::remove_var("PUBLIC_SITE_URL");
+        env::remove_var("BACKEND_BASE_URL");
+        env::remove_var("PRODUCTION_SITE_URL");
         let sitemap = sitemap_body();
-        assert!(sitemap.contains("https://cooper-and-co.com/service-areas/lorain-oh"));
+        assert!(sitemap.contains("https://cooper-and-co.com/service-areas"));
+        assert!(!sitemap.contains("https://cooper-and-co.com/service-areas/lorain-oh"));
         assert!(!sitemap.contains("beta.cooper-and-co.com"));
         assert!(!sitemap.contains("/admin"));
         assert!(!sitemap.contains("/api/"));
@@ -1529,6 +1617,14 @@ mod tests {
 
     #[test]
     fn all_indexable_pages_have_unique_metadata_and_valid_json_ld() {
+        let _guard = crate::ENV_LOCK
+            .lock()
+            .unwrap_or_else(|error| error.into_inner());
+        env::remove_var("COOPERCO_NOINDEX");
+        env::remove_var("PUBLIC_APP_URL");
+        env::remove_var("PUBLIC_SITE_URL");
+        env::remove_var("BACKEND_BASE_URL");
+        env::remove_var("PRODUCTION_SITE_URL");
         let mut titles = std::collections::HashSet::new();
         let mut descriptions = std::collections::HashSet::new();
         for path in indexable_paths() {
@@ -1541,6 +1637,7 @@ mod tests {
             let html = render_page(&page);
             assert_eq!(html.matches("<h1").count(), 1, "one H1 on {path}");
             assert!(html.contains(r#"<link rel="canonical" href="https://cooper-and-co.com"#));
+            assert!(html.contains(r#"<meta name="geo.placename" content="Lorain County, Ohio">"#));
             for block in json_ld_blocks(&html) {
                 serde_json::from_str::<Value>(&block).expect("valid json-ld");
             }
@@ -1548,14 +1645,96 @@ mod tests {
     }
 
     #[test]
+    fn json_ld_includes_required_schema_types_without_address_fields() {
+        let _guard = crate::ENV_LOCK
+            .lock()
+            .unwrap_or_else(|error| error.into_inner());
+        env::remove_var("COOPERCO_NOINDEX");
+        env::remove_var("PUBLIC_APP_URL");
+        env::remove_var("PUBLIC_SITE_URL");
+        env::remove_var("BACKEND_BASE_URL");
+        env::remove_var("PRODUCTION_SITE_URL");
+        let home = render_page(&home());
+        let graph = json_ld_blocks(&home)
+            .into_iter()
+            .next()
+            .and_then(|block| serde_json::from_str::<Value>(&block).ok())
+            .and_then(|value| value.get("@graph").cloned())
+            .and_then(|value| value.as_array().cloned())
+            .expect("json graph");
+        let graph_text = serde_json::to_string(&graph).unwrap();
+        for schema_type in [
+            "LocalBusiness",
+            "PetService",
+            "WebSite",
+            "ImageObject",
+            "FAQPage",
+        ] {
+            assert!(graph_text.contains(schema_type), "{schema_type}");
+        }
+        assert!(graph_text.contains("Elyria, OH"));
+        assert!(graph_text.contains("North Ridgeville, OH"));
+        assert!(!graph_text.contains("PostalAddress"));
+        assert!(!graph_text.contains("streetAddress"));
+        assert!(!graph_text.contains("latitude"));
+        assert!(!graph_text.contains("longitude"));
+
+        let service = render_page(&service_page(&SERVICES[0]));
+        let service_graph = json_ld_blocks(&service).join("");
+        assert!(service_graph.contains(r#""@type":"Service""#));
+        assert!(service_graph.contains(r#""@type":"FAQPage""#));
+
+        let services = render_page(&services_index());
+        assert!(json_ld_blocks(&services)
+            .join("")
+            .contains("BreadcrumbList"));
+    }
+
+    #[test]
+    fn beta_configuration_keeps_production_canonical_and_empty_sitemap() {
+        let _guard = crate::ENV_LOCK
+            .lock()
+            .unwrap_or_else(|error| error.into_inner());
+        env::set_var("PUBLIC_APP_URL", "https://beta.cooper-and-co.com");
+        env::set_var("PRODUCTION_SITE_URL", "https://beta.cooper-and-co.com");
+        let html = render_page(&home());
+        assert!(html.contains(r#"<meta name="robots" content="noindex, nofollow">"#));
+        assert!(html.contains(r#"<link rel="canonical" href="https://cooper-and-co.com/">"#));
+        assert!(!html.contains(r#"href="https://beta.cooper-and-co.com/"#));
+
+        let sitemap = sitemap_body();
+        assert!(!sitemap.contains("<loc>"));
+        assert!(!sitemap.contains("beta.cooper-and-co.com"));
+
+        env::remove_var("PUBLIC_APP_URL");
+        env::remove_var("PRODUCTION_SITE_URL");
+    }
+
+    #[test]
     fn registry_validation_passes() {
+        let _guard = crate::ENV_LOCK
+            .lock()
+            .unwrap_or_else(|error| error.into_inner());
+        env::remove_var("COOPERCO_NOINDEX");
+        env::remove_var("PUBLIC_APP_URL");
+        env::remove_var("PUBLIC_SITE_URL");
+        env::remove_var("BACKEND_BASE_URL");
+        env::remove_var("PRODUCTION_SITE_URL");
         assert_eq!(validation_errors(), Vec::<String>::new());
     }
 
     #[test]
     fn robots_changes_for_staging() {
+        let _guard = crate::ENV_LOCK
+            .lock()
+            .unwrap_or_else(|error| error.into_inner());
+        env::remove_var("PUBLIC_APP_URL");
+        env::remove_var("PUBLIC_SITE_URL");
+        env::remove_var("BACKEND_BASE_URL");
+        env::remove_var("PRODUCTION_SITE_URL");
         env::set_var("COOPERCO_NOINDEX", "true");
         assert_eq!(robots_body(), "User-agent: *\nDisallow: /\n");
+        assert!(!sitemap_body().contains("<loc>"));
         env::remove_var("COOPERCO_NOINDEX");
         assert!(robots_body().contains("Disallow: /admin"));
     }
