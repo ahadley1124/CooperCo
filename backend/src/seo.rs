@@ -92,7 +92,7 @@ pub const BUSINESS: BusinessProfile = BusinessProfile {
     state: "Ohio",
     county: "Lorain County",
     facebook_url: "https://www.facebook.com/CooperAndCoPet",
-    yelp_url: "https://m.yelp.com/biz/cooper-and-company-elyria",
+    yelp_url: "https://www.yelp.com/biz/cooper-and-company-elyria",
 };
 
 pub const SERVICE_AREAS: &[ServiceArea] = &[
@@ -754,10 +754,7 @@ fn home() -> Page {
         body,
         breadcrumbs: vec![("Home", "/".to_owned())],
         schema: vec![
-            local_business_schema(),
-            website_schema(),
             webpage_schema("/", "WebPage"),
-            image_object_schema(),
             faq_schema("/", &[
                 FaqItem { question: "Where does Cooper & Co. serve?", answer: "Cooper & Co. serves Lorain County, including Elyria, Lorain, Amherst, Avon, and North Ridgeville." },
                 FaqItem { question: "Which services are published on the website?", answer: "The published service pages are dog training, puppy training, and group dog classes." },
@@ -1040,7 +1037,15 @@ fn render_page(page: &Page) -> String {
     } else {
         "index, follow, max-image-preview:large"
     };
-    let mut graph = page.schema.clone();
+    // Every page's graph must be self-contained: `@id` references such as an
+    // Article's author/publisher only resolve when the node they point at is
+    // present in the same document.
+    let mut graph = vec![
+        local_business_schema(),
+        website_schema(),
+        image_object_schema(),
+    ];
+    graph.extend(page.schema.clone());
     if page.breadcrumbs.len() > 1 {
         graph.push(breadcrumb_schema(&page.breadcrumbs));
     }
@@ -1048,6 +1053,14 @@ fn render_page(page: &Page) -> String {
         "@context": "https://schema.org",
         "@graph": graph
     });
+    let canonical_link = if page.indexable {
+        format!(
+            r#"<link rel="canonical" href="{}">"#,
+            escape_attr(&canonical)
+        )
+    } else {
+        String::new()
+    };
     let hooks = verification_and_analytics_hooks();
     let inquiry_script = inquiry_form_script();
     format!(
@@ -1059,7 +1072,7 @@ fn render_page(page: &Page) -> String {
 <meta name="robots" content="{robots}">
 <title>{title}</title>
 <meta name="description" content="{description}">
-<link rel="canonical" href="{canonical}">
+{canonical_link}
 <link rel="icon" type="image/png" href="/assets/favicon.png">
 <link rel="stylesheet" href="/styles.css">
 <meta name="theme-color" content="#285c4d">
@@ -1100,7 +1113,7 @@ fn render_page(page: &Page) -> String {
         robots = robots,
         title = escape_attr(&page.title),
         description = escape_attr(&page.description),
-        canonical = escape_attr(&canonical),
+        canonical_link = canonical_link,
         site_name = escape_attr(BUSINESS.name),
         origin = canonical_origin(),
         social_image = SOCIAL_IMAGE,
@@ -1708,6 +1721,66 @@ mod tests {
 
         env::remove_var("PUBLIC_APP_URL");
         env::remove_var("PRODUCTION_SITE_URL");
+    }
+
+    #[test]
+    fn every_page_graph_resolves_its_own_id_references() {
+        let _guard = crate::ENV_LOCK
+            .lock()
+            .unwrap_or_else(|error| error.into_inner());
+        env::remove_var("COOPERCO_NOINDEX");
+        env::remove_var("PUBLIC_APP_URL");
+        env::remove_var("PUBLIC_SITE_URL");
+        env::remove_var("BACKEND_BASE_URL");
+        env::remove_var("PRODUCTION_SITE_URL");
+
+        for path in indexable_paths() {
+            let page = page_for_path(&path).expect("route");
+            let rendered = render_page(&page);
+            let graph = json_ld_blocks(&rendered)
+                .into_iter()
+                .next()
+                .and_then(|block| serde_json::from_str::<Value>(&block).ok())
+                .and_then(|value| value.get("@graph").cloned())
+                .and_then(|value| value.as_array().cloned())
+                .expect("json graph");
+
+            let defined = graph
+                .iter()
+                .filter_map(|node| node.get("@id").and_then(Value::as_str))
+                .map(str::to_owned)
+                .collect::<std::collections::HashSet<_>>();
+
+            let mut referenced = Vec::new();
+            collect_id_references(&Value::Array(graph.clone()), &mut referenced);
+            for reference in referenced {
+                assert!(
+                    defined.contains(&reference),
+                    "{path} references {reference} but never defines it"
+                );
+            }
+        }
+    }
+
+    /// Collects `{"@id": "..."}` reference objects, i.e. nodes that point at an
+    /// entity without describing one themselves.
+    fn collect_id_references(value: &Value, out: &mut Vec<String>) {
+        match value {
+            Value::Array(items) => items
+                .iter()
+                .for_each(|item| collect_id_references(item, out)),
+            Value::Object(map) => {
+                let is_reference = map.len() == 1 && map.contains_key("@id");
+                if is_reference {
+                    if let Some(id) = map.get("@id").and_then(Value::as_str) {
+                        out.push(id.to_owned());
+                    }
+                }
+                map.values()
+                    .for_each(|item| collect_id_references(item, out));
+            }
+            _ => {}
+        }
     }
 
     #[test]

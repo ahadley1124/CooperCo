@@ -60,7 +60,7 @@ The initial content was taken from the public Facebook page at `https://www.face
 - Location: Lorain County, OH
 - Phone: `(440) 276-1716`
 - Email: `cooper.copetservices@gmail.com`
-- Yelp listing: `https://m.yelp.com/biz/cooper-and-company-elyria`
+- Yelp listing: `https://www.yelp.com/biz/cooper-and-company-elyria`
 - Visible update: summer group classes announcement from May 10
 
 ## Run Locally

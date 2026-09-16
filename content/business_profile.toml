@@ -9,7 +9,7 @@ email = "cooper.copetservices@gmail.com"
 public_address = ""
 public_address_status = "not_published"
 facebook_url = "https://www.facebook.com/CooperAndCoPet"
-yelp_url = "https://m.yelp.com/biz/cooper-and-company-elyria"
+yelp_url = "https://www.yelp.com/biz/cooper-and-company-elyria"
 
 [[services]]
 slug = "dog-training"
