@@ -57,6 +57,10 @@ pub struct ServiceDefinition {
     pub page_title: &'static str,
     pub description: &'static str,
     pub summary: &'static str,
+    /// A direct, self-contained answer to the question this page exists for,
+    /// placed first in the main content. Extraction into a featured snippet or
+    /// an AI Overview works from the opening passage.
+    pub answer: &'static str,
     pub audience: &'static str,
     pub image: PageImage,
     pub process: &'static [&'static str],
@@ -82,6 +86,8 @@ pub struct ResourceArticle {
     pub slug: &'static str,
     pub title: &'static str,
     pub description: &'static str,
+    /// See `ServiceDefinition::answer`.
+    pub answer: &'static str,
     pub service_slug: &'static str,
     pub published: &'static str,
     pub modified: &'static str,
@@ -195,6 +201,7 @@ pub const SERVICES: &[ServiceDefinition] = &[
         page_title: "Dog Training in Lorain County, Ohio | Cooper & Co.",
         description: "Ask Cooper & Co. about dog training in Lorain County, Ohio, covering leash manners, focus, and everyday skills. Serving Elyria, Lorain, Amherst and Avon.",
         summary: "Dog training inquiries can cover leash manners, focus, everyday skills, and current training goals.",
+        answer: "Cooper & Co. offers dog training in Lorain County, Ohio, serving Elyria, Lorain, Amherst, Avon, and North Ridgeville. Inquiries cover leash manners, focus, and everyday household skills. Send your dog's age, current training experience, and goals, and Cooper & Co. responds with fit, timing, and the next step.",
         audience: "Appropriate for dog owners who want clearer expectations, practical skills, and help choosing a class or training path.",
         image: PageImage {
             basename: "cooperco-pet-services-hero",
@@ -225,6 +232,7 @@ pub const SERVICES: &[ServiceDefinition] = &[
         page_title: "Puppy Training in Lorain County | Cooper & Co.",
         description: "Ask Cooper & Co. about puppy training in Lorain County, Ohio, covering early manners, routines, and class readiness. Serving Elyria, Lorain and Amherst.",
         summary: "Puppy training inquiries focus on early manners, confidence, routines, and class readiness.",
+        answer: "Cooper & Co. offers puppy training in Lorain County, Ohio, serving Elyria, Lorain, Amherst, Avon, and North Ridgeville. Inquiries focus on early manners, confidence, daily routines, and readiness for a class. Share your puppy's age, schedule, and handling notes, and Cooper & Co. confirms whether the current format fits.",
         audience: "Appropriate for puppy owners who want early guidance without overwhelming a young dog.",
         image: PageImage {
             basename: "puppy-training-lorain-county",
@@ -255,6 +263,7 @@ pub const SERVICES: &[ServiceDefinition] = &[
         page_title: "Group Dog Classes in Lorain County | Cooper & Co.",
         description: "Ask Cooper & Co. about group dog classes in Lorain County, Ohio, including class fit, what to prepare, and current availability. Send your dog's details.",
         summary: "Group dog class inquiries help determine class fit, readiness, goals, and current openings.",
+        answer: "Cooper & Co. runs group dog classes in Lorain County, Ohio, serving Elyria, Lorain, Amherst, Avon, and North Ridgeville. Classes give dogs structured practice around other dogs and people. Describe your dog's age, temperament, and goals, and Cooper & Co. confirms whether the current group format is appropriate.",
         audience: "Appropriate for owners who want structured practice around other dogs and people when group settings are a fit.",
         image: PageImage {
             basename: "group-dog-classes-lorain-county",
@@ -286,6 +295,7 @@ pub const ARTICLES: &[ResourceArticle] = &[
         slug: "what-to-expect-from-a-group-dog-training-class",
         title: "What to Expect From a Group Dog Training Class",
         description: "A practical overview of how a group dog class runs, what to prepare beforehand, and the training expectations that are realistic for a first class.",
+        answer: "A group dog training class usually opens with introductions, moves through short skill demonstrations, gives handlers practice time, and builds in breaks so dogs can reset. Expect steady progress over several sessions rather than a finished skill on the first day.",
         service_slug: "group-dog-classes",
         published: "2026-07-19",
         modified: "2026-07-19",
@@ -299,6 +309,7 @@ pub const ARTICLES: &[ResourceArticle] = &[
         slug: "preparing-your-puppy-for-its-first-training-class",
         title: "Preparing Your Puppy for Its First Training Class",
         description: "Help your puppy arrive ready for a first training class, with simple planning, handling practice, and the health questions worth asking a veterinarian first.",
+        answer: "Prepare a puppy for a first class by settling routines at home, practising gentle handling, and confirming health questions with a veterinarian first. Arrive with the gear the trainer asks for, and treat the first session as an introduction rather than a test.",
         service_slug: "puppy-training",
         published: "2026-07-19",
         modified: "2026-07-19",
@@ -312,6 +323,7 @@ pub const ARTICLES: &[ResourceArticle] = &[
         slug: "basic-leash-skills-to-practice-at-home",
         title: "Basic Leash Skills to Practice at Home",
         description: "Simple leash-skill ideas dog owners in Lorain County can practice at home, in short sessions, before asking Cooper & Co. about training support.",
+        answer: "Practise leash skills at home in short sessions, in a quiet room or yard, before adding distractions. Reward the dog for staying near you, keep the leash loose, and stop while the dog is still succeeding rather than pushing to the point of frustration.",
         service_slug: "dog-training",
         published: "2026-07-19",
         modified: "2026-07-19",
@@ -325,6 +337,7 @@ pub const ARTICLES: &[ResourceArticle] = &[
         slug: "how-to-choose-a-dog-trainer-in-lorain-county",
         title: "How to Choose a Dog Trainer in Lorain County",
         description: "Questions Lorain County dog owners can ask when comparing a trainer, class, or training program, and the answers worth confirming before you commit.",
+        answer: "Choose a dog trainer in Lorain County by asking how they handle your dog's specific goals, what a session looks like, how they respond when a dog struggles, and what they expect you to practise between sessions. Confirm the answers before you commit.",
         service_slug: "dog-training",
         published: "2026-07-19",
         modified: "2026-07-19",
@@ -338,6 +351,7 @@ pub const ARTICLES: &[ResourceArticle] = &[
         slug: "questions-to-ask-before-joining-a-group-dog-class",
         title: "Questions to Ask Before Joining a Group Dog Class",
         description: "Use these practical questions to decide whether a group dog class is a safe and useful fit for your dog, and what to confirm with the trainer beforehand.",
+        answer: "Before joining a group dog class, ask what the class covers, how many dogs attend, what the space is like, what the trainer expects handlers to do, and how dogs that struggle are supported. The answers tell you whether the format suits your dog.",
         service_slug: "group-dog-classes",
         published: "2026-07-19",
         modified: "2026-07-19",
@@ -351,6 +365,7 @@ pub const ARTICLES: &[ResourceArticle] = &[
         slug: "puppy-socialization-without-overwhelming-your-puppy",
         title: "Puppy Socialization Without Overwhelming Your Puppy",
         description: "A calm approach to puppy socialization that puts confidence, safety, and veterinarian guidance ahead of exposure for its own sake. Read it before class.",
+        answer: "Socialise a puppy by keeping exposures short, calm, and optional, letting the puppy choose to approach rather than being carried into a crowd. Watch for signs of stress, end on a good note, and follow veterinarian guidance on where and when it is safe to go.",
         service_slug: "puppy-training",
         published: "2026-07-19",
         modified: "2026-07-19",
@@ -364,6 +379,7 @@ pub const ARTICLES: &[ResourceArticle] = &[
         slug: "helping-a-dog-stay-focused-around-distractions",
         title: "Helping a Dog Stay Focused Around Distractions",
         description: "Practical ways to build a dog's focus around everyday distractions, in short sessions and realistic settings, without expecting instant results.",
+        answer: "Build focus around distractions by starting further away than you think you need, rewarding attention before the dog reacts, and shortening sessions as difficulty rises. Progress comes from many easy repetitions rather than a single hard one.",
         service_slug: "dog-training",
         published: "2026-07-19",
         modified: "2026-07-19",
@@ -377,6 +393,7 @@ pub const ARTICLES: &[ResourceArticle] = &[
         slug: "what-to-bring-to-a-dog-training-class",
         title: "What to Bring to a Dog Training Class",
         description: "A simple packing list for a dog training or puppy class, plus the handling notes and questions worth confirming with the trainer before you attend.",
+        answer: "Bring a flat collar or harness, a standard leash, the rewards your dog actually works for, water, and any handling notes the trainer should know. Confirm the specific requirements with the trainer before the first session rather than guessing.",
         service_slug: "group-dog-classes",
         published: "2026-07-19",
         modified: "2026-07-19",
@@ -390,6 +407,7 @@ pub const ARTICLES: &[ResourceArticle] = &[
         slug: "dog-training-goals-how-to-set-realistic-expectations",
         title: "Dog Training Goals: How to Set Realistic Expectations",
         description: "Set practical dog training goals that account for how much you can practice, the environment, your dog's age, and the safety limits that apply.",
+        answer: "Set dog training goals around how much you can practise, where the dog will need the skill, the dog's age, and any safety limits. A goal you can rehearse a few minutes a day beats an ambitious one that never gets practised.",
         service_slug: "dog-training",
         published: "2026-07-19",
         modified: "2026-07-19",
@@ -403,6 +421,7 @@ pub const ARTICLES: &[ResourceArticle] = &[
         slug: "indoor-dog-enrichment-ideas-for-ohio-winters",
         title: "Indoor Dog-Enrichment Ideas for Ohio Winters",
         description: "Low-pressure indoor enrichment ideas for cold Ohio winters, for the weeks when outdoor practice is limited and a dog still needs something to work on.",
+        answer: "When Ohio winters limit outdoor practice, use indoor enrichment such as scent games, food puzzles, short skill sessions, and calm handling practice. A few focused minutes several times a day keeps a dog occupied without needing space or good weather.",
         service_slug: "dog-training",
         published: "2026-07-19",
         modified: "2026-07-19",
@@ -944,7 +963,7 @@ fn service_page(service: &ServiceDefinition) -> Page {
         .map(resource_card)
         .collect::<String>();
     let body = format!(
-        r#"<section class="section page-hero" aria-labelledby="service-title"><p class="eyebrow">Service</p><h1 id="service-title">{h1}</h1><p>{summary}</p><div class="hero-actions"><a class="button primary" href="/contact">Request information</a><a class="button secondary on-light" href="tel:{phone_e164}">{phone}</a></div>{figure}</section>
+        r#"<section class="section page-hero" aria-labelledby="service-title"><p class="eyebrow">Service</p><h1 id="service-title">{h1}</h1><p class="answer">{answer}</p><p>{summary}</p><div class="hero-actions"><a class="button primary" href="/contact">Request information</a><a class="button secondary on-light" href="tel:{phone_e164}">{phone}</a></div>{figure}</section>
 <section class="section" aria-labelledby="service-fit"><div class="section-heading"><p class="eyebrow">Fit</p><h2 id="service-fit">Who this may help</h2><p>{audience}</p></div></section>
 <section class="section split" aria-labelledby="service-process"><div><p class="eyebrow">Process</p><h2 id="service-process">Expected inquiry process</h2>{process}</div><div><p class="eyebrow">Prepare</p><h2>What to share</h2>{prepare}</div></section>
 <section class="section" aria-labelledby="availability"><div class="section-heading"><p class="eyebrow">Availability</p><h2 id="availability">Lorain County service area</h2><p>Cooper &amp; Co. serves Lorain County, including Elyria, Lorain, Amherst, Avon, and North Ridgeville. Include your city or ZIP code when you ask about fit.</p></div><a class="button secondary on-light" href="/service-areas">View service area</a></section>
@@ -952,6 +971,7 @@ fn service_page(service: &ServiceDefinition) -> Page {
 <section class="section" aria-labelledby="related"><div class="section-heading"><p class="eyebrow">Resources</p><h2 id="related">Related resources</h2></div><div class="service-grid">{related}</div></section>
 {contact}"#,
         h1 = escape(&service_h1(service)),
+        answer = escape(service.answer),
         summary = escape(service.summary),
         figure = figure_markup(&service.image, true),
         audience = escape(service.audience),
@@ -1060,8 +1080,9 @@ fn article_page(article: &ResourceArticle) -> Page {
         .map(resource_card)
         .collect::<String>();
     let body = format!(
-        r#"<article class="section page-hero resource-article" aria-labelledby="article-title"><p class="eyebrow">Cooper &amp; Co. Resource</p><h1 id="article-title">{title}</h1><p>{description}</p><p><strong>By Cooper &amp; Co.</strong> Published <time datetime="{published}">{published}</time>; updated <time datetime="{modified}">{modified}</time>.</p><div class="article-body">{sections}<h2>When to ask for help</h2><p>Contact Cooper &amp; Co. with your dog details, goals, and location. For medical concerns, consult a qualified veterinarian.</p></div><div class="hero-actions"><a class="button primary" href="/contact">Contact Cooper &amp; Co.</a><a class="button secondary on-light" href="/services/{service_slug}">{service_name}</a></div></article><section class="section" aria-labelledby="related-articles"><div class="section-heading"><p class="eyebrow">Related</p><h2 id="related-articles">Related articles</h2></div><div class="service-grid">{related}</div></section>"#,
+        r#"<article class="section page-hero resource-article" aria-labelledby="article-title"><p class="eyebrow">Cooper &amp; Co. Resource</p><h1 id="article-title">{title}</h1><p class="answer">{answer}</p><p>{description}</p><p><strong>By Cooper &amp; Co.</strong> Published <time datetime="{published}">{published}</time>; updated <time datetime="{modified}">{modified}</time>.</p><div class="article-body">{sections}<h2>When to ask for help</h2><p>Contact Cooper &amp; Co. with your dog details, goals, and location. For medical concerns, consult a qualified veterinarian.</p></div><div class="hero-actions"><a class="button primary" href="/contact">Contact Cooper &amp; Co.</a><a class="button secondary on-light" href="/services/{service_slug}">{service_name}</a></div></article><section class="section" aria-labelledby="related-articles"><div class="section-heading"><p class="eyebrow">Related</p><h2 id="related-articles">Related articles</h2></div><div class="service-grid">{related}</div></section>"#,
         title = escape(article.title),
+        answer = escape(article.answer),
         description = escape(article.description),
         published = article.published,
         modified = article.modified,
@@ -2246,6 +2267,60 @@ mod tests {
             rest = after;
         }
         levels
+    }
+
+    /// The opening passage is what a featured snippet or an AI Overview lifts,
+    /// so it has to answer the page's question on its own, at a length that
+    /// survives extraction.
+    #[test]
+    fn service_and_article_pages_open_with_a_direct_answer() {
+        let _guard = crate::ENV_LOCK
+            .lock()
+            .unwrap_or_else(|error| error.into_inner());
+
+        let answers = SERVICES
+            .iter()
+            .map(|service| (service.slug, service.answer))
+            .chain(
+                ARTICLES
+                    .iter()
+                    .map(|article| (article.slug, article.answer)),
+            );
+
+        for (slug, answer) in answers {
+            let words = answer.split_whitespace().count();
+            assert!(
+                (35..=70).contains(&words),
+                "{slug} answer is {words} words, outside 35-70"
+            );
+            assert!(
+                answer.ends_with('.'),
+                "{slug} answer is not a complete passage"
+            );
+        }
+
+        for service in SERVICES {
+            let rendered = render_page(&service_page(service));
+            // Compare positions within the body: the summary also appears in the
+            // head, as the Service node's description.
+            let body = &rendered[rendered.find("<main").expect("main")..];
+            let answer_at = body.find(&escape(service.answer)).expect("answer");
+            let summary_at = body.find(&escape(service.summary)).expect("summary");
+            assert!(
+                answer_at < summary_at,
+                "{} buries its answer below the summary",
+                service.slug
+            );
+        }
+
+        for article in ARTICLES {
+            let rendered = render_page(&article_page(article));
+            assert!(
+                rendered.contains(&escape(article.answer)),
+                "{} renders no answer",
+                article.slug
+            );
+        }
     }
 
     #[test]
