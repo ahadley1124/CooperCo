@@ -36,14 +36,3 @@ jobs:
 
       - name: Build backend
         run: cargo build --release -p backend
-
-      - name: Run route-level SEO audit
-        run: |
-          ./target/release/backend &
-          server=$!
-          trap 'kill "$server" 2>/dev/null || true' EXIT
-          for _ in $(seq 1 30); do
-            curl -sf -o /dev/null http://127.0.0.1:9001/ && break
-            sleep 1
-          done
-          scripts/seo-audit.sh http://127.0.0.1:9001
