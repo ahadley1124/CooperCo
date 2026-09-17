@@ -141,18 +141,50 @@ pub const SERVICE_AREAS: &[ServiceArea] = &[
     },
 ];
 
-const SERVICE_FAQ: &[FaqItem] = &[
+/// Each service answers its own questions. Three services previously shared one
+/// FaqItem list, which published a byte-identical FAQPage entity on three URLs.
+const DOG_TRAINING_FAQ: &[FaqItem] = &[
     FaqItem {
-        question: "How do I know which service is a good fit?",
-        answer: "Share your dog's age, current skills, goals, schedule needs, and location. Cooper & Co. can respond with the most relevant next step.",
+        question: "What should a dog training inquiry include?",
+        answer: "Send your dog's age, breed or size, current training experience, and the goals you have in mind, such as leash skills, focus, or household manners.",
     },
     FaqItem {
-        question: "Are prices listed online?",
-        answer: "The website does not publish fixed prices. Use the contact form, phone, or email for current details from Cooper & Co.",
+        question: "Should I mention triggers or health limits?",
+        answer: "Yes. Note any known triggers, safety concerns, health limits, and veterinarian guidance. Medical questions should go to a qualified veterinarian.",
     },
     FaqItem {
-        question: "Can Cooper & Co. help with medical concerns?",
-        answer: "Medical questions should go to a qualified veterinarian. Training and class inquiries should describe any health limits that affect participation.",
+        question: "What happens after I send a dog training inquiry?",
+        answer: "Cooper & Co. reviews fit, timing, and the next step, then responds with current availability and preparation details.",
+    },
+];
+
+const PUPPY_TRAINING_FAQ: &[FaqItem] = &[
+    FaqItem {
+        question: "What should a puppy training inquiry include?",
+        answer: "Share your puppy's age, schedule, comfort around people or dogs, and any handling notes that affect training.",
+    },
+    FaqItem {
+        question: "Which puppy topics can I ask about?",
+        answer: "Puppy inquiries commonly cover potty routines, crate practice, leash exposure, and building focus without overwhelming a young dog.",
+    },
+    FaqItem {
+        question: "Who should I ask about vaccinations or medical concerns?",
+        answer: "A qualified veterinarian. Include any veterinarian guidance that affects participation when you send an inquiry.",
+    },
+];
+
+const GROUP_CLASS_FAQ: &[FaqItem] = &[
+    FaqItem {
+        question: "How do I know a group class is a fit for my dog?",
+        answer: "Describe your dog's age, temperament, and goals. Cooper & Co. confirms whether the current group format is appropriate before class.",
+    },
+    FaqItem {
+        question: "What should I mention about behavior around other dogs?",
+        answer: "Note any known reactivity, fear, overexcitement, or safety concerns so class fit can be assessed before you attend.",
+    },
+    FaqItem {
+        question: "Are class times and openings listed on the website?",
+        answer: "The website does not publish a class schedule. Ask about current class format, capacity, and requirements through the contact options.",
     },
 ];
 
@@ -180,7 +212,7 @@ pub const SERVICES: &[ServiceDefinition] = &[
             "Goals such as leash skills, focus, household manners, or class readiness.",
             "Known triggers, safety notes, health limits, and veterinarian guidance when relevant.",
         ],
-        faq: SERVICE_FAQ,
+        faq: DOG_TRAINING_FAQ,
         related_resources: &[
             "basic-leash-skills-to-practice-at-home",
             "helping-a-dog-stay-focused-around-distractions",
@@ -210,7 +242,7 @@ pub const SERVICES: &[ServiceDefinition] = &[
             "Questions about potty routines, crate practice, leash exposure, or focus.",
             "Veterinarian guidance for medical or vaccination concerns.",
         ],
-        faq: SERVICE_FAQ,
+        faq: PUPPY_TRAINING_FAQ,
         related_resources: &[
             "preparing-your-puppy-for-its-first-training-class",
             "puppy-socialization-without-overwhelming-your-puppy",
@@ -240,7 +272,7 @@ pub const SERVICES: &[ServiceDefinition] = &[
             "Known reactivity, fear, overexcitement, or safety concerns.",
             "Questions about current class format, capacity, and requirements.",
         ],
-        faq: SERVICE_FAQ,
+        faq: GROUP_CLASS_FAQ,
         related_resources: &[
             "what-to-expect-from-a-group-dog-training-class",
             "questions-to-ask-before-joining-a-group-dog-class",
@@ -868,14 +900,9 @@ fn home() -> Page {
         h1: "Cooper & Co. dog training and pet services in Lorain County".to_owned(),
         body,
         breadcrumbs: vec![("Home", "/".to_owned())],
-        schema: vec![
-            webpage_schema("/", "WebPage"),
-            faq_schema("/", &[
-                FaqItem { question: "Where does Cooper & Co. serve?", answer: "Cooper & Co. serves Lorain County, including Elyria, Lorain, Amherst, Avon, and North Ridgeville." },
-                FaqItem { question: "Which services are published on the website?", answer: "The published service pages are dog training, puppy training, and group dog classes." },
-                FaqItem { question: "How do I ask about my location?", answer: "Include your city or ZIP code in the inquiry form so Cooper & Co. can respond with current fit." },
-            ]),
-        ],
+        // The homepage summarises questions that /faq answers in full; only that
+        // page carries the FAQPage entity, so the two do not compete.
+        schema: vec![webpage_schema("/", "WebPage")],
         indexable: true,
     }
 }
@@ -1848,15 +1875,16 @@ mod tests {
             .and_then(|value| value.as_array().cloned())
             .expect("json graph");
         let graph_text = serde_json::to_string(&graph).unwrap();
-        for schema_type in [
-            "LocalBusiness",
-            "PetService",
-            "WebSite",
-            "ImageObject",
-            "FAQPage",
-        ] {
+        for schema_type in ["LocalBusiness", "PetService", "WebSite", "ImageObject"] {
             assert!(graph_text.contains(schema_type), "{schema_type}");
         }
+        assert!(
+            !graph_text.contains("FAQPage"),
+            "the homepage must not compete with /faq for the same FAQ entity"
+        );
+        assert!(json_ld_blocks(&render_page(&faq_page()))
+            .join("")
+            .contains("FAQPage"));
         assert!(graph_text.contains("Elyria, OH"));
         assert!(graph_text.contains("North Ridgeville, OH"));
         assert!(!graph_text.contains("PostalAddress"));
@@ -2090,6 +2118,38 @@ mod tests {
             rest = &after[end..];
         }
         entries
+    }
+
+    #[test]
+    fn no_faq_question_is_published_on_more_than_one_url() {
+        let _guard = crate::ENV_LOCK
+            .lock()
+            .unwrap_or_else(|error| error.into_inner());
+
+        let mut origin = std::collections::HashMap::new();
+        for path in indexable_paths() {
+            let page = page_for_path(&path).expect("route");
+            for schema in &page.schema {
+                if schema.get("@type").and_then(Value::as_str) != Some("FAQPage") {
+                    continue;
+                }
+                let questions = schema
+                    .get("mainEntity")
+                    .and_then(Value::as_array)
+                    .expect("mainEntity");
+                for question in questions {
+                    let name = question
+                        .get("name")
+                        .and_then(Value::as_str)
+                        .expect("question name")
+                        .to_owned();
+                    if let Some(other) = origin.insert(name.clone(), path.clone()) {
+                        panic!("{name:?} is marked up on both {other} and {path}");
+                    }
+                }
+            }
+        }
+        assert!(!origin.is_empty(), "no FAQ markup found at all");
     }
 
     #[test]
