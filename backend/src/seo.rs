@@ -393,6 +393,7 @@ pub enum MarketingResponse {
     File {
         file: NamedFile,
         x_robots: bool,
+        fingerprinted: bool,
     },
 }
 
@@ -417,6 +418,7 @@ impl<'r> Responder<'r, 'static> for MarketingResponse {
             MarketingResponse::Xml(body) => {
                 let response = RawXml(body).respond_to(request)?;
                 let mut builder = Response::build_from(response);
+                builder.raw_header("Cache-Control", "public, max-age=3600");
                 if staging_noindex_enabled() {
                     builder.header(Header::new("X-Robots-Tag", "noindex, nofollow"));
                 }
@@ -426,6 +428,7 @@ impl<'r> Responder<'r, 'static> for MarketingResponse {
                 let mut response = Response::build();
                 response.status(Status::Ok);
                 response.header(ContentType::Plain);
+                response.raw_header("Cache-Control", "public, max-age=3600");
                 if staging_noindex_enabled() {
                     response.header(Header::new("X-Robots-Tag", "noindex, nofollow"));
                 }
@@ -433,10 +436,24 @@ impl<'r> Responder<'r, 'static> for MarketingResponse {
                 response.ok()
             }
             MarketingResponse::Redirect(redirect) => redirect.respond_to(request),
-            MarketingResponse::File { file, x_robots } => {
+            MarketingResponse::File {
+                file,
+                x_robots,
+                fingerprinted,
+            } => {
                 let response = file.respond_to(request)?;
                 let mut builder = Response::build_from(response);
-                builder.raw_header("Cache-Control", "public, max-age=31536000, immutable");
+                // Only a URL that changes when its bytes change may be cached
+                // immutably. Everything else must revalidate, or a deploy will
+                // not reach browsers and edge caches that already hold it.
+                builder.raw_header(
+                    "Cache-Control",
+                    if fingerprinted {
+                        "public, max-age=31536000, immutable"
+                    } else {
+                        "public, max-age=3600, must-revalidate"
+                    },
+                );
                 if x_robots {
                     builder.header(Header::new("X-Robots-Tag", "noindex, nofollow"));
                 }
@@ -535,6 +552,7 @@ async fn static_file_response(path: &str) -> Option<MarketingResponse> {
                 return Some(MarketingResponse::File {
                     file,
                     x_robots: staging_noindex_enabled(),
+                    fingerprinted: false,
                 });
             }
         }
@@ -556,6 +574,7 @@ async fn static_file_response(path: &str) -> Option<MarketingResponse> {
         .map(|file| MarketingResponse::File {
             file,
             x_robots: staging_noindex_enabled(),
+            fingerprinted: is_fingerprinted(relative),
         })
 }
 
@@ -1648,6 +1667,21 @@ fn obsolete_non_lorain_slug(slug: &str) -> bool {
     )
 }
 
+/// True when a filename embeds a content hash, as Trunk's build output does
+/// (`index-1a2b3c4d5e6f7890.js`). Such a URL changes whenever its bytes do, so
+/// it is safe to cache forever. `styles.css` and the files under `/assets` do
+/// not, so they must not be.
+fn is_fingerprinted(path: &str) -> bool {
+    let Some(name) = path.rsplit('/').next() else {
+        return false;
+    };
+    let Some((stem, _extension)) = name.rsplit_once('.') else {
+        return false;
+    };
+    stem.rsplit_once('-')
+        .is_some_and(|(_, hash)| hash.len() >= 8 && hash.chars().all(|ch| ch.is_ascii_hexdigit()))
+}
+
 fn normalize_path(path: &str) -> String {
     let without_query = path.split('?').next().unwrap_or(path);
     if without_query != "/" {
@@ -1908,6 +1942,27 @@ mod tests {
                     "missing asset {asset}"
                 );
             }
+        }
+    }
+
+    #[test]
+    fn only_content_hashed_filenames_are_cached_immutably() {
+        for hashed in [
+            "index-1a2b3c4d5e6f7890.js",
+            "index-0123456789abcdef.css",
+            "dist/frontend-deadbeefcafe1234_bg-0123456789abcdef.wasm",
+        ] {
+            assert!(is_fingerprinted(hashed), "{hashed}");
+        }
+        for plain in [
+            "styles.css",
+            "assets/cooperco-pet-services-hero.webp",
+            "assets/facebook-cooperco-gallery-1.webp",
+            "assets/favicon.png",
+            "robots.txt",
+            "noextension",
+        ] {
+            assert!(!is_fingerprinted(plain), "{plain}");
         }
     }
 
