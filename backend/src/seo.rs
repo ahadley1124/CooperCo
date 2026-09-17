@@ -10,7 +10,9 @@ use rocket::{
 use serde_json::{json, Value};
 
 const PRODUCTION_ORIGIN: &str = "https://cooper-and-co.com";
-const LASTMOD: &str = "2026-07-21";
+/// Fallback change date for pages that carry no date of their own. Update it
+/// when the marketing copy or layout of those pages changes.
+const SITE_LASTMOD: &str = "2026-09-17";
 const SOCIAL_IMAGE: &str = "/assets/cooperco-pet-services-hero.webp";
 const SOCIAL_IMAGE_ALT: &str =
     "Black and tan dog on a leash in a park with dog-training cones in the background";
@@ -28,6 +30,26 @@ pub struct BusinessProfile {
     pub yelp_url: &'static str,
 }
 
+/// An image published on a page. `basename` names an asset that exists in both
+/// AVIF and WebP form under `/assets`.
+#[derive(Clone, Copy, Debug)]
+pub struct PageImage {
+    pub basename: &'static str,
+    pub alt: &'static str,
+    pub width: u32,
+    pub height: u32,
+}
+
+impl PageImage {
+    fn webp(&self) -> String {
+        format!("/assets/{}.webp", self.basename)
+    }
+
+    fn avif(&self) -> String {
+        format!("/assets/{}.avif", self.basename)
+    }
+}
+
 #[derive(Clone, Copy, Debug)]
 pub struct ServiceDefinition {
     pub slug: &'static str,
@@ -35,7 +57,12 @@ pub struct ServiceDefinition {
     pub page_title: &'static str,
     pub description: &'static str,
     pub summary: &'static str,
+    /// A direct, self-contained answer to the question this page exists for,
+    /// placed first in the main content. Extraction into a featured snippet or
+    /// an AI Overview works from the opening passage.
+    pub answer: &'static str,
     pub audience: &'static str,
+    pub image: PageImage,
     pub process: &'static [&'static str],
     pub prepare: &'static [&'static str],
     pub faq: &'static [FaqItem],
@@ -59,6 +86,8 @@ pub struct ResourceArticle {
     pub slug: &'static str,
     pub title: &'static str,
     pub description: &'static str,
+    /// See `ServiceDefinition::answer`.
+    pub answer: &'static str,
     pub service_slug: &'static str,
     pub published: &'static str,
     pub modified: &'static str,
@@ -92,7 +121,7 @@ pub const BUSINESS: BusinessProfile = BusinessProfile {
     state: "Ohio",
     county: "Lorain County",
     facebook_url: "https://www.facebook.com/CooperAndCoPet",
-    yelp_url: "https://m.yelp.com/biz/cooper-and-company-elyria",
+    yelp_url: "https://www.yelp.com/biz/cooper-and-company-elyria",
 };
 
 pub const SERVICE_AREAS: &[ServiceArea] = &[
@@ -118,18 +147,50 @@ pub const SERVICE_AREAS: &[ServiceArea] = &[
     },
 ];
 
-const SERVICE_FAQ: &[FaqItem] = &[
+/// Each service answers its own questions. Three services previously shared one
+/// FaqItem list, which published a byte-identical FAQPage entity on three URLs.
+const DOG_TRAINING_FAQ: &[FaqItem] = &[
     FaqItem {
-        question: "How do I know which service is a good fit?",
-        answer: "Share your dog's age, current skills, goals, schedule needs, and location. Cooper & Co. can respond with the most relevant next step.",
+        question: "What should a dog training inquiry include?",
+        answer: "Send your dog's age, breed or size, current training experience, and the goals you have in mind, such as leash skills, focus, or household manners.",
     },
     FaqItem {
-        question: "Are prices listed online?",
-        answer: "The website does not publish fixed prices. Use the contact form, phone, or email for current details from Cooper & Co.",
+        question: "Should I mention triggers or health limits?",
+        answer: "Yes. Note any known triggers, safety concerns, health limits, and veterinarian guidance. Medical questions should go to a qualified veterinarian.",
     },
     FaqItem {
-        question: "Can Cooper & Co. help with medical concerns?",
-        answer: "Medical questions should go to a qualified veterinarian. Training and class inquiries should describe any health limits that affect participation.",
+        question: "What happens after I send a dog training inquiry?",
+        answer: "Cooper & Co. reviews fit, timing, and the next step, then responds with current availability and preparation details.",
+    },
+];
+
+const PUPPY_TRAINING_FAQ: &[FaqItem] = &[
+    FaqItem {
+        question: "What should a puppy training inquiry include?",
+        answer: "Share your puppy's age, schedule, comfort around people or dogs, and any handling notes that affect training.",
+    },
+    FaqItem {
+        question: "Which puppy topics can I ask about?",
+        answer: "Puppy inquiries commonly cover potty routines, crate practice, leash exposure, and building focus without overwhelming a young dog.",
+    },
+    FaqItem {
+        question: "Who should I ask about vaccinations or medical concerns?",
+        answer: "A qualified veterinarian. Include any veterinarian guidance that affects participation when you send an inquiry.",
+    },
+];
+
+const GROUP_CLASS_FAQ: &[FaqItem] = &[
+    FaqItem {
+        question: "How do I know a group class is a fit for my dog?",
+        answer: "Describe your dog's age, temperament, and goals. Cooper & Co. confirms whether the current group format is appropriate before class.",
+    },
+    FaqItem {
+        question: "What should I mention about behavior around other dogs?",
+        answer: "Note any known reactivity, fear, overexcitement, or safety concerns so class fit can be assessed before you attend.",
+    },
+    FaqItem {
+        question: "Are class times and openings listed on the website?",
+        answer: "The website does not publish a class schedule. Ask about current class format, capacity, and requirements through the contact options.",
     },
 ];
 
@@ -138,9 +199,16 @@ pub const SERVICES: &[ServiceDefinition] = &[
         slug: "dog-training",
         name: "Dog training",
         page_title: "Dog Training in Lorain County, Ohio | Cooper & Co.",
-        description: "Ask Cooper & Co. about dog training in Lorain County, including Elyria, Lorain, Amherst, Avon, and North Ridgeville.",
+        description: "Ask Cooper & Co. about dog training in Lorain County, Ohio, covering leash manners, focus, and everyday skills. Serving Elyria, Lorain, Amherst and Avon.",
         summary: "Dog training inquiries can cover leash manners, focus, everyday skills, and current training goals.",
+        answer: "Cooper & Co. offers dog training in Lorain County, Ohio, serving Elyria, Lorain, Amherst, Avon, and North Ridgeville. Inquiries cover leash manners, focus, and everyday household skills. Send your dog's age, current training experience, and goals, and Cooper & Co. responds with fit, timing, and the next step.",
         audience: "Appropriate for dog owners who want clearer expectations, practical skills, and help choosing a class or training path.",
+        image: PageImage {
+            basename: "cooperco-pet-services-hero",
+            alt: SOCIAL_IMAGE_ALT,
+            width: 1600,
+            height: 900,
+        },
         process: &[
             "Send an inquiry with your city, dog details, and training goals.",
             "Cooper & Co. reviews fit, timing, and the next step.",
@@ -151,7 +219,7 @@ pub const SERVICES: &[ServiceDefinition] = &[
             "Goals such as leash skills, focus, household manners, or class readiness.",
             "Known triggers, safety notes, health limits, and veterinarian guidance when relevant.",
         ],
-        faq: SERVICE_FAQ,
+        faq: DOG_TRAINING_FAQ,
         related_resources: &[
             "basic-leash-skills-to-practice-at-home",
             "helping-a-dog-stay-focused-around-distractions",
@@ -162,9 +230,16 @@ pub const SERVICES: &[ServiceDefinition] = &[
         slug: "puppy-training",
         name: "Puppy training",
         page_title: "Puppy Training in Lorain County | Cooper & Co.",
-        description: "Ask Cooper & Co. about puppy training in Lorain County, including Elyria, Lorain, Amherst, Avon, and North Ridgeville.",
+        description: "Ask Cooper & Co. about puppy training in Lorain County, Ohio, covering early manners, routines, and class readiness. Serving Elyria, Lorain and Amherst.",
         summary: "Puppy training inquiries focus on early manners, confidence, routines, and class readiness.",
+        answer: "Cooper & Co. offers puppy training in Lorain County, Ohio, serving Elyria, Lorain, Amherst, Avon, and North Ridgeville. Inquiries focus on early manners, confidence, daily routines, and readiness for a class. Share your puppy's age, schedule, and handling notes, and Cooper & Co. confirms whether the current format fits.",
         audience: "Appropriate for puppy owners who want early guidance without overwhelming a young dog.",
+        image: PageImage {
+            basename: "puppy-training-lorain-county",
+            alt: "Golden puppy in a teal collar sitting on grass, watching a kneeling handler beside a treat pouch",
+            width: 1200,
+            height: 1200,
+        },
         process: &[
             "Share puppy age, relevant health details, and goals.",
             "Cooper & Co. confirms whether the current format is a fit.",
@@ -175,7 +250,7 @@ pub const SERVICES: &[ServiceDefinition] = &[
             "Questions about potty routines, crate practice, leash exposure, or focus.",
             "Veterinarian guidance for medical or vaccination concerns.",
         ],
-        faq: SERVICE_FAQ,
+        faq: PUPPY_TRAINING_FAQ,
         related_resources: &[
             "preparing-your-puppy-for-its-first-training-class",
             "puppy-socialization-without-overwhelming-your-puppy",
@@ -186,9 +261,16 @@ pub const SERVICES: &[ServiceDefinition] = &[
         slug: "group-dog-classes",
         name: "Group dog classes",
         page_title: "Group Dog Classes in Lorain County | Cooper & Co.",
-        description: "Ask Cooper & Co. about group dog classes in Lorain County, including class fit, preparation, and availability.",
+        description: "Ask Cooper & Co. about group dog classes in Lorain County, Ohio, including class fit, what to prepare, and current availability. Send your dog's details.",
         summary: "Group dog class inquiries help determine class fit, readiness, goals, and current openings.",
+        answer: "Cooper & Co. runs group dog classes in Lorain County, Ohio, serving Elyria, Lorain, Amherst, Avon, and North Ridgeville. Classes give dogs structured practice around other dogs and people. Describe your dog's age, temperament, and goals, and Cooper & Co. confirms whether the current group format is appropriate.",
         audience: "Appropriate for owners who want structured practice around other dogs and people when group settings are a fit.",
+        image: PageImage {
+            basename: "group-dog-classes-lorain-county",
+            alt: "Five dogs sitting on leash beside their handlers on grass during an outdoor group class",
+            width: 1200,
+            height: 1200,
+        },
         process: &[
             "Describe your dog's age, temperament, and goals before class.",
             "Cooper & Co. confirms whether the current group format is appropriate.",
@@ -199,7 +281,7 @@ pub const SERVICES: &[ServiceDefinition] = &[
             "Known reactivity, fear, overexcitement, or safety concerns.",
             "Questions about current class format, capacity, and requirements.",
         ],
-        faq: SERVICE_FAQ,
+        faq: GROUP_CLASS_FAQ,
         related_resources: &[
             "what-to-expect-from-a-group-dog-training-class",
             "questions-to-ask-before-joining-a-group-dog-class",
@@ -212,7 +294,8 @@ pub const ARTICLES: &[ResourceArticle] = &[
     ResourceArticle {
         slug: "what-to-expect-from-a-group-dog-training-class",
         title: "What to Expect From a Group Dog Training Class",
-        description: "A practical overview of group dog class structure, preparation, and realistic training expectations.",
+        description: "A practical overview of how a group dog class runs, what to prepare beforehand, and the training expectations that are realistic for a first class.",
+        answer: "A group dog training class usually opens with introductions, moves through short skill demonstrations, gives handlers practice time, and builds in breaks so dogs can reset. Expect steady progress over several sessions rather than a finished skill on the first day.",
         service_slug: "group-dog-classes",
         published: "2026-07-19",
         modified: "2026-07-19",
@@ -225,7 +308,8 @@ pub const ARTICLES: &[ResourceArticle] = &[
     ResourceArticle {
         slug: "preparing-your-puppy-for-its-first-training-class",
         title: "Preparing Your Puppy for Its First Training Class",
-        description: "Help your puppy arrive ready for a first training class with simple planning and health-aware questions.",
+        description: "Help your puppy arrive ready for a first training class, with simple planning, handling practice, and the health questions worth asking a veterinarian first.",
+        answer: "Prepare a puppy for a first class by settling routines at home, practising gentle handling, and confirming health questions with a veterinarian first. Arrive with the gear the trainer asks for, and treat the first session as an introduction rather than a test.",
         service_slug: "puppy-training",
         published: "2026-07-19",
         modified: "2026-07-19",
@@ -238,7 +322,8 @@ pub const ARTICLES: &[ResourceArticle] = &[
     ResourceArticle {
         slug: "basic-leash-skills-to-practice-at-home",
         title: "Basic Leash Skills to Practice at Home",
-        description: "Simple leash-skill ideas dog owners can practice at home before asking about training support.",
+        description: "Simple leash-skill ideas dog owners in Lorain County can practice at home, in short sessions, before asking Cooper & Co. about training support.",
+        answer: "Practise leash skills at home in short sessions, in a quiet room or yard, before adding distractions. Reward the dog for staying near you, keep the leash loose, and stop while the dog is still succeeding rather than pushing to the point of frustration.",
         service_slug: "dog-training",
         published: "2026-07-19",
         modified: "2026-07-19",
@@ -251,7 +336,8 @@ pub const ARTICLES: &[ResourceArticle] = &[
     ResourceArticle {
         slug: "how-to-choose-a-dog-trainer-in-lorain-county",
         title: "How to Choose a Dog Trainer in Lorain County",
-        description: "Questions Lorain County dog owners can ask when evaluating a trainer, class, or training program.",
+        description: "Questions Lorain County dog owners can ask when comparing a trainer, class, or training program, and the answers worth confirming before you commit.",
+        answer: "Choose a dog trainer in Lorain County by asking how they handle your dog's specific goals, what a session looks like, how they respond when a dog struggles, and what they expect you to practise between sessions. Confirm the answers before you commit.",
         service_slug: "dog-training",
         published: "2026-07-19",
         modified: "2026-07-19",
@@ -264,7 +350,8 @@ pub const ARTICLES: &[ResourceArticle] = &[
     ResourceArticle {
         slug: "questions-to-ask-before-joining-a-group-dog-class",
         title: "Questions to Ask Before Joining a Group Dog Class",
-        description: "Use these practical questions to decide whether a group dog class is a safe and useful fit.",
+        description: "Use these practical questions to decide whether a group dog class is a safe and useful fit for your dog, and what to confirm with the trainer beforehand.",
+        answer: "Before joining a group dog class, ask what the class covers, how many dogs attend, what the space is like, what the trainer expects handlers to do, and how dogs that struggle are supported. The answers tell you whether the format suits your dog.",
         service_slug: "group-dog-classes",
         published: "2026-07-19",
         modified: "2026-07-19",
@@ -277,7 +364,8 @@ pub const ARTICLES: &[ResourceArticle] = &[
     ResourceArticle {
         slug: "puppy-socialization-without-overwhelming-your-puppy",
         title: "Puppy Socialization Without Overwhelming Your Puppy",
-        description: "A calm approach to puppy socialization that prioritizes confidence, safety, and veterinarian guidance.",
+        description: "A calm approach to puppy socialization that puts confidence, safety, and veterinarian guidance ahead of exposure for its own sake. Read it before class.",
+        answer: "Socialise a puppy by keeping exposures short, calm, and optional, letting the puppy choose to approach rather than being carried into a crowd. Watch for signs of stress, end on a good note, and follow veterinarian guidance on where and when it is safe to go.",
         service_slug: "puppy-training",
         published: "2026-07-19",
         modified: "2026-07-19",
@@ -290,7 +378,8 @@ pub const ARTICLES: &[ResourceArticle] = &[
     ResourceArticle {
         slug: "helping-a-dog-stay-focused-around-distractions",
         title: "Helping a Dog Stay Focused Around Distractions",
-        description: "Practical ways to build focus around everyday distractions without expecting instant results.",
+        description: "Practical ways to build a dog's focus around everyday distractions, in short sessions and realistic settings, without expecting instant results.",
+        answer: "Build focus around distractions by starting further away than you think you need, rewarding attention before the dog reacts, and shortening sessions as difficulty rises. Progress comes from many easy repetitions rather than a single hard one.",
         service_slug: "dog-training",
         published: "2026-07-19",
         modified: "2026-07-19",
@@ -303,7 +392,8 @@ pub const ARTICLES: &[ResourceArticle] = &[
     ResourceArticle {
         slug: "what-to-bring-to-a-dog-training-class",
         title: "What to Bring to a Dog Training Class",
-        description: "A simple packing list for dog training or puppy class, plus questions to confirm before attending.",
+        description: "A simple packing list for a dog training or puppy class, plus the handling notes and questions worth confirming with the trainer before you attend.",
+        answer: "Bring a flat collar or harness, a standard leash, the rewards your dog actually works for, water, and any handling notes the trainer should know. Confirm the specific requirements with the trainer before the first session rather than guessing.",
         service_slug: "group-dog-classes",
         published: "2026-07-19",
         modified: "2026-07-19",
@@ -316,7 +406,8 @@ pub const ARTICLES: &[ResourceArticle] = &[
     ResourceArticle {
         slug: "dog-training-goals-how-to-set-realistic-expectations",
         title: "Dog Training Goals: How to Set Realistic Expectations",
-        description: "Set practical dog training goals that account for practice, environment, dog age, and safety.",
+        description: "Set practical dog training goals that account for how much you can practice, the environment, your dog's age, and the safety limits that apply.",
+        answer: "Set dog training goals around how much you can practise, where the dog will need the skill, the dog's age, and any safety limits. A goal you can rehearse a few minutes a day beats an ambitious one that never gets practised.",
         service_slug: "dog-training",
         published: "2026-07-19",
         modified: "2026-07-19",
@@ -329,7 +420,8 @@ pub const ARTICLES: &[ResourceArticle] = &[
     ResourceArticle {
         slug: "indoor-dog-enrichment-ideas-for-ohio-winters",
         title: "Indoor Dog-Enrichment Ideas for Ohio Winters",
-        description: "Low-pressure indoor enrichment ideas for cold Ohio weather when outdoor practice is limited.",
+        description: "Low-pressure indoor enrichment ideas for cold Ohio winters, for the weeks when outdoor practice is limited and a dog still needs something to work on.",
+        answer: "When Ohio winters limit outdoor practice, use indoor enrichment such as scent games, food puzzles, short skill sessions, and calm handling practice. A few focused minutes several times a day keeps a dog occupied without needing space or good weather.",
         service_slug: "dog-training",
         published: "2026-07-19",
         modified: "2026-07-19",
@@ -354,6 +446,7 @@ pub enum MarketingResponse {
     File {
         file: NamedFile,
         x_robots: bool,
+        fingerprinted: bool,
     },
 }
 
@@ -378,6 +471,7 @@ impl<'r> Responder<'r, 'static> for MarketingResponse {
             MarketingResponse::Xml(body) => {
                 let response = RawXml(body).respond_to(request)?;
                 let mut builder = Response::build_from(response);
+                builder.raw_header("Cache-Control", "public, max-age=3600");
                 if staging_noindex_enabled() {
                     builder.header(Header::new("X-Robots-Tag", "noindex, nofollow"));
                 }
@@ -387,6 +481,7 @@ impl<'r> Responder<'r, 'static> for MarketingResponse {
                 let mut response = Response::build();
                 response.status(Status::Ok);
                 response.header(ContentType::Plain);
+                response.raw_header("Cache-Control", "public, max-age=3600");
                 if staging_noindex_enabled() {
                     response.header(Header::new("X-Robots-Tag", "noindex, nofollow"));
                 }
@@ -394,10 +489,24 @@ impl<'r> Responder<'r, 'static> for MarketingResponse {
                 response.ok()
             }
             MarketingResponse::Redirect(redirect) => redirect.respond_to(request),
-            MarketingResponse::File { file, x_robots } => {
+            MarketingResponse::File {
+                file,
+                x_robots,
+                fingerprinted,
+            } => {
                 let response = file.respond_to(request)?;
                 let mut builder = Response::build_from(response);
-                builder.raw_header("Cache-Control", "public, max-age=31536000, immutable");
+                // Only a URL that changes when its bytes change may be cached
+                // immutably. Everything else must revalidate, or a deploy will
+                // not reach browsers and edge caches that already hold it.
+                builder.raw_header(
+                    "Cache-Control",
+                    if fingerprinted {
+                        "public, max-age=31536000, immutable"
+                    } else {
+                        "public, max-age=3600, must-revalidate"
+                    },
+                );
                 if x_robots {
                     builder.header(Header::new("X-Robots-Tag", "noindex, nofollow"));
                 }
@@ -407,15 +516,49 @@ impl<'r> Responder<'r, 'static> for MarketingResponse {
     }
 }
 
+/// The request path exactly as it arrived. Rocket's `PathBuf` segments drop a
+/// trailing empty segment, so `/contact/` and `/contact` are indistinguishable
+/// by the time a handler runs; redirecting duplicates needs the raw URI.
+pub struct RawPath(String);
+
+#[rocket::async_trait]
+impl<'r> rocket::request::FromRequest<'r> for RawPath {
+    type Error = std::convert::Infallible;
+
+    async fn from_request(request: &'r Request<'_>) -> rocket::request::Outcome<Self, Self::Error> {
+        rocket::request::Outcome::Success(RawPath(request.uri().path().as_str().to_owned()))
+    }
+}
+
 #[get("/")]
 pub async fn home_page() -> MarketingResponse {
     render_marketing_path("/").await
 }
 
 #[get("/<path..>", rank = 20)]
-pub async fn marketing_page(path: PathBuf) -> MarketingResponse {
+pub async fn marketing_page(path: PathBuf, raw: RawPath) -> MarketingResponse {
+    if let Some(target) = duplicate_url_redirect(&raw.0) {
+        return MarketingResponse::Redirect(Redirect::moved(target));
+    }
     let path = format!("/{}", path.to_string_lossy().replace('\\', "/"));
     render_marketing_path(&path).await
+}
+
+/// Collapses URLs that serve identical content onto one address: a trailing
+/// slash, and the build's `index.html`, which would otherwise answer with the
+/// client-rendered shell as a thin duplicate of `/`.
+fn duplicate_url_redirect(raw_path: &str) -> Option<String> {
+    if raw_path == "/index.html" {
+        return Some("/".to_owned());
+    }
+    if raw_path.len() > 1 && raw_path.ends_with('/') {
+        let trimmed = raw_path.trim_end_matches('/');
+        if trimmed.is_empty() {
+            return Some("/".to_owned());
+        }
+        return Some(trimmed.to_owned());
+    }
+    None
 }
 
 #[get("/robots.txt")]
@@ -496,6 +639,7 @@ async fn static_file_response(path: &str) -> Option<MarketingResponse> {
                 return Some(MarketingResponse::File {
                     file,
                     x_robots: staging_noindex_enabled(),
+                    fingerprinted: false,
                 });
             }
         }
@@ -517,6 +661,7 @@ async fn static_file_response(path: &str) -> Option<MarketingResponse> {
         .map(|file| MarketingResponse::File {
             file,
             x_robots: staging_noindex_enabled(),
+            fingerprinted: is_fingerprinted(relative),
         })
 }
 
@@ -540,11 +685,14 @@ pub fn sitemap_body() -> String {
     let urls = indexable_paths()
         .iter()
         .map(|path| {
+            let (changefreq, priority) = crawl_hints(path);
             format!(
-                "<url><loc>{}{}</loc><lastmod>{LASTMOD}</lastmod><changefreq>monthly</changefreq><priority>{}</priority></url>",
+                "<url><loc>{}{}</loc><lastmod>{}</lastmod><changefreq>{}</changefreq><priority>{}</priority></url>",
                 canonical_origin(),
                 path,
-                if path == "/" { "1.0" } else { "0.8" }
+                lastmod_for(path),
+                changefreq,
+                priority
             )
         })
         .collect::<String>();
@@ -552,6 +700,24 @@ pub fn sitemap_body() -> String {
     format!(
         r#"<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">{urls}</urlset>"#
     )
+}
+
+/// Resource pages carry their own modification date; everything else falls back
+/// to the site-wide date. A single hard-coded date across every URL tells a
+/// crawler nothing about which pages actually changed.
+pub fn lastmod_for(path: &str) -> &'static str {
+    path.strip_prefix("/resources/")
+        .and_then(|slug| ARTICLES.iter().find(|article| article.slug == slug))
+        .map(|article| article.modified)
+        .unwrap_or(SITE_LASTMOD)
+}
+
+fn crawl_hints(path: &str) -> (&'static str, &'static str) {
+    match path {
+        "/" => ("monthly", "1.0"),
+        "/privacy" | "/accessibility" => ("yearly", "0.5"),
+        _ => ("monthly", "0.8"),
+    }
 }
 
 pub fn indexable_paths() -> Vec<String> {
@@ -753,17 +919,9 @@ fn home() -> Page {
         h1: "Cooper & Co. dog training and pet services in Lorain County".to_owned(),
         body,
         breadcrumbs: vec![("Home", "/".to_owned())],
-        schema: vec![
-            local_business_schema(),
-            website_schema(),
-            webpage_schema("/", "WebPage"),
-            image_object_schema(),
-            faq_schema("/", &[
-                FaqItem { question: "Where does Cooper & Co. serve?", answer: "Cooper & Co. serves Lorain County, including Elyria, Lorain, Amherst, Avon, and North Ridgeville." },
-                FaqItem { question: "Which services are published on the website?", answer: "The published service pages are dog training, puppy training, and group dog classes." },
-                FaqItem { question: "How do I ask about my location?", answer: "Include your city or ZIP code in the inquiry form so Cooper & Co. can respond with current fit." },
-            ]),
-        ],
+        // The homepage summarises questions that /faq answers in full; only that
+        // page carries the FAQPage entity, so the two do not compete.
+        schema: vec![webpage_schema("/", "WebPage")],
         indexable: true,
     }
 }
@@ -771,8 +929,8 @@ fn home() -> Page {
 fn about() -> Page {
     basic_page(
         "/about",
-        "About Cooper & Co. in Lorain County | Cooper & Co.",
-        "Learn how to contact Cooper & Co. for dog training, puppy training, and group dog class inquiries in Lorain County.",
+        "About Cooper & Co. | Dog Training in Lorain County",
+        "Learn how to reach Cooper & Co. about dog training, puppy training, and group dog classes in Lorain County, Ohio, and what to include in a first inquiry.",
         "About Cooper & Co.",
         "Cooper & Co. serves Lorain County, including Elyria, Lorain, Amherst, Avon, and North Ridgeville. Use the listed phone, email, Facebook, Yelp, or inquiry form to ask about dog training, puppy training, and group dog classes.",
         "AboutPage",
@@ -782,13 +940,13 @@ fn about() -> Page {
 fn services_index() -> Page {
     let cards = SERVICES.iter().map(service_card).collect::<String>();
     let body = format!(
-        r#"<section class="section page-hero" aria-labelledby="services-title"><p class="eyebrow">Services</p><h1 id="services-title">Dog training services from Cooper &amp; Co.</h1><p>Use these pages to share dog details, training goals, Lorain County location, and preferred timing.</p></section><section class="section"><div class="service-grid">{cards}</div></section>{contact}"#,
+        r#"<section class="section page-hero" aria-labelledby="services-title"><p class="eyebrow">Services</p><h1 id="services-title">Dog training services from Cooper &amp; Co.</h1><p>Use these pages to share dog details, training goals, Lorain County location, and preferred timing.</p></section><section class="section" aria-labelledby="services-published"><div class="section-heading"><h2 id="services-published">Published services</h2></div><div class="service-grid">{cards}</div></section>{contact}"#,
         contact = contact_section("Ask which training option fits your dog")
     );
     Page {
         path: "/services".to_owned(),
         title: "Dog Training Services in Lorain County | Cooper & Co.".to_owned(),
-        description: "Explore Cooper & Co. dog training, puppy training, and group dog class inquiry pages for Lorain County pet owners.".to_owned(),
+        description: "Explore Cooper & Co. dog training, puppy training, and group dog class pages for Lorain County pet owners, then send the details of your dog and goals.".to_owned(),
         h1: "Dog training services from Cooper & Co.".to_owned(),
         body,
         breadcrumbs: vec![("Home", "/".to_owned()), ("Services", "/services".to_owned())],
@@ -805,15 +963,17 @@ fn service_page(service: &ServiceDefinition) -> Page {
         .map(resource_card)
         .collect::<String>();
     let body = format!(
-        r#"<section class="section page-hero" aria-labelledby="service-title"><p class="eyebrow">Service</p><h1 id="service-title">{h1}</h1><p>{summary}</p><div class="hero-actions"><a class="button primary" href="/contact">Request information</a><a class="button secondary on-light" href="tel:{phone_e164}">{phone}</a></div></section>
+        r#"<section class="section page-hero" aria-labelledby="service-title"><p class="eyebrow">Service</p><h1 id="service-title">{h1}</h1><p class="answer">{answer}</p><p>{summary}</p><div class="hero-actions"><a class="button primary" href="/contact">Request information</a><a class="button secondary on-light" href="tel:{phone_e164}">{phone}</a></div>{figure}</section>
 <section class="section" aria-labelledby="service-fit"><div class="section-heading"><p class="eyebrow">Fit</p><h2 id="service-fit">Who this may help</h2><p>{audience}</p></div></section>
 <section class="section split" aria-labelledby="service-process"><div><p class="eyebrow">Process</p><h2 id="service-process">Expected inquiry process</h2>{process}</div><div><p class="eyebrow">Prepare</p><h2>What to share</h2>{prepare}</div></section>
 <section class="section" aria-labelledby="availability"><div class="section-heading"><p class="eyebrow">Availability</p><h2 id="availability">Lorain County service area</h2><p>Cooper &amp; Co. serves Lorain County, including Elyria, Lorain, Amherst, Avon, and North Ridgeville. Include your city or ZIP code when you ask about fit.</p></div><a class="button secondary on-light" href="/service-areas">View service area</a></section>
 <section class="section faq" aria-labelledby="service-faq"><div class="section-heading"><p class="eyebrow">FAQ</p><h2 id="service-faq">Service questions</h2></div>{faq}</section>
 <section class="section" aria-labelledby="related"><div class="section-heading"><p class="eyebrow">Resources</p><h2 id="related">Related resources</h2></div><div class="service-grid">{related}</div></section>
 {contact}"#,
-        h1 = escape(service.name),
+        h1 = escape(&service_h1(service)),
+        answer = escape(service.answer),
         summary = escape(service.summary),
+        figure = figure_markup(&service.image, true),
         audience = escape(service.audience),
         process = list_markup(service.process),
         prepare = list_markup(service.prepare),
@@ -828,7 +988,7 @@ fn service_page(service: &ServiceDefinition) -> Page {
         path: path.clone(),
         title: service.page_title.to_owned(),
         description: service.description.to_owned(),
-        h1: service.name.to_owned(),
+        h1: service_h1(service),
         body,
         breadcrumbs: vec![
             ("Home", "/".to_owned()),
@@ -838,10 +998,20 @@ fn service_page(service: &ServiceDefinition) -> Page {
         schema: vec![
             webpage_schema(&path, "WebPage"),
             service_schema(service),
+            page_image_schema(&service.image),
             faq_schema(&path, service.faq),
         ],
         indexable: true,
     }
+}
+
+/// "Dog training" alone says nothing about where. The title already carries the
+/// county, so the visible heading should too.
+fn service_h1(service: &ServiceDefinition) -> String {
+    format!(
+        "{} in {}, {}",
+        service.name, BUSINESS.county, BUSINESS.state
+    )
 }
 
 fn service_areas_index() -> Page {
@@ -857,7 +1027,7 @@ fn service_areas_index() -> Page {
     Page {
         path: "/service-areas".to_owned(),
         title: "Service Areas in Lorain County | Cooper & Co.".to_owned(),
-        description: "Cooper & Co. serves Lorain County, including Elyria, Lorain, Amherst, Avon, and North Ridgeville, Ohio.".to_owned(),
+        description: "Cooper & Co. serves Lorain County, Ohio, including Elyria, Lorain, Amherst, Avon, and North Ridgeville. Include your city or ZIP code in your inquiry.".to_owned(),
         h1: "Cooper & Co. service area".to_owned(),
         body,
         breadcrumbs: vec![
@@ -872,13 +1042,13 @@ fn service_areas_index() -> Page {
 fn resources_index() -> Page {
     let cards = ARTICLES.iter().map(resource_card).collect::<String>();
     let body = format!(
-        r#"<section class="section page-hero" aria-labelledby="resources-title"><p class="eyebrow">Resources</p><h1 id="resources-title">Dog training resources</h1><p>Educational articles help owners prepare thoughtful questions before contacting Cooper &amp; Co. Medical concerns should be directed to a qualified veterinarian.</p></section><section class="section"><div class="service-grid">{cards}</div></section>{contact}"#,
+        r#"<section class="section page-hero" aria-labelledby="resources-title"><p class="eyebrow">Resources</p><h1 id="resources-title">Dog training resources</h1><p>Educational articles help owners prepare thoughtful questions before contacting Cooper &amp; Co. Medical concerns should be directed to a qualified veterinarian.</p></section><section class="section" aria-labelledby="resources-published"><div class="section-heading"><h2 id="resources-published">All articles</h2></div><div class="service-grid">{cards}</div></section>{contact}"#,
         contact = contact_section("Ask a dog training question")
     );
     Page {
         path: "/resources".to_owned(),
         title: "Dog Training Resources | Cooper & Co.".to_owned(),
-        description: "Read Cooper & Co. resources about group classes, puppy preparation, leash skills, and training expectations.".to_owned(),
+        description: "Read Cooper & Co. articles on group classes, puppy preparation, leash skills, and training expectations before you ask about dog training in Lorain County.".to_owned(),
         h1: "Dog training resources".to_owned(),
         body,
         breadcrumbs: vec![("Home", "/".to_owned()), ("Resources", "/resources".to_owned())],
@@ -910,8 +1080,9 @@ fn article_page(article: &ResourceArticle) -> Page {
         .map(resource_card)
         .collect::<String>();
     let body = format!(
-        r#"<article class="section page-hero resource-article" aria-labelledby="article-title"><p class="eyebrow">Cooper &amp; Co. Resource</p><h1 id="article-title">{title}</h1><p>{description}</p><p><strong>By Cooper &amp; Co.</strong> Published <time datetime="{published}">{published}</time>; updated <time datetime="{modified}">{modified}</time>.</p><div class="article-body">{sections}<h2>When to ask for help</h2><p>Contact Cooper &amp; Co. with your dog details, goals, and location. For medical concerns, consult a qualified veterinarian.</p></div><div class="hero-actions"><a class="button primary" href="/contact">Contact Cooper &amp; Co.</a><a class="button secondary on-light" href="/services/{service_slug}">{service_name}</a></div></article><section class="section" aria-labelledby="related-articles"><div class="section-heading"><p class="eyebrow">Related</p><h2 id="related-articles">Related articles</h2></div><div class="service-grid">{related}</div></section>"#,
+        r#"<article class="section page-hero resource-article" aria-labelledby="article-title"><p class="eyebrow">Cooper &amp; Co. Resource</p><h1 id="article-title">{title}</h1><p class="answer">{answer}</p><p>{description}</p><p><strong>By Cooper &amp; Co.</strong> Published <time datetime="{published}">{published}</time>; updated <time datetime="{modified}">{modified}</time>.</p><div class="article-body">{sections}<h2>When to ask for help</h2><p>Contact Cooper &amp; Co. with your dog details, goals, and location. For medical concerns, consult a qualified veterinarian.</p></div><div class="hero-actions"><a class="button primary" href="/contact">Contact Cooper &amp; Co.</a><a class="button secondary on-light" href="/services/{service_slug}">{service_name}</a></div></article><section class="section" aria-labelledby="related-articles"><div class="section-heading"><p class="eyebrow">Related</p><h2 id="related-articles">Related articles</h2></div><div class="service-grid">{related}</div></section>"#,
         title = escape(article.title),
+        answer = escape(article.answer),
         description = escape(article.description),
         published = article.published,
         modified = article.modified,
@@ -923,7 +1094,7 @@ fn article_page(article: &ResourceArticle) -> Page {
     let path = format!("/resources/{}", article.slug);
     Page {
         path: path.clone(),
-        title: format!("{} | Cooper & Co.", article.title),
+        title: brand_title(article.title),
         description: article.description.to_owned(),
         h1: article.title.to_owned(),
         body,
@@ -945,7 +1116,7 @@ fn contact() -> Page {
     Page {
         path: "/contact".to_owned(),
         title: "Contact Cooper & Co. in Lorain County".to_owned(),
-        description: "Contact Cooper & Co. by phone, email, Facebook, Yelp, or inquiry form about Lorain County dog training and classes.".to_owned(),
+        description: "Contact Cooper & Co. by phone, email, Facebook, Yelp, or the inquiry form about dog training, puppy training, and group dog classes in Lorain County, Ohio.".to_owned(),
         h1: "Contact Cooper & Co.".to_owned(),
         body,
         breadcrumbs: vec![("Home", "/".to_owned()), ("Contact", "/contact".to_owned())],
@@ -989,7 +1160,7 @@ fn privacy() -> Page {
     basic_page(
         "/privacy",
         "Privacy Policy | Cooper & Co.",
-        "Read how Cooper & Co. website inquiries collect contact and pet-service details for follow-up.",
+        "Read how Cooper & Co. handles website inquiries, which contact and pet-service details the form collects, and what should never be sent through this website.",
         "Privacy policy",
         "The inquiry form collects contact information and pet-service details so Cooper & Co. can respond. Do not submit private medical details, financial information, or emergency information through the website.",
         "WebPage",
@@ -1032,6 +1203,18 @@ fn basic_page(
     }
 }
 
+/// Appends the brand only while the result still fits the ~60 characters a
+/// result page shows. A truncated title loses its tail, which matters more than
+/// a brand that already appears in the URL and the breadcrumb.
+fn brand_title(title: &str) -> String {
+    let suffix = format!(" | {}", BUSINESS.name);
+    if title.chars().count() + suffix.chars().count() <= 60 {
+        format!("{title}{suffix}")
+    } else {
+        title.to_owned()
+    }
+}
+
 fn render_page(page: &Page) -> String {
     let _validated_h1 = &page.h1;
     let canonical = format!("{}{}", canonical_origin(), page.path);
@@ -1040,14 +1223,36 @@ fn render_page(page: &Page) -> String {
     } else {
         "index, follow, max-image-preview:large"
     };
-    let mut graph = page.schema.clone();
+    // Every page's graph must be self-contained: `@id` references such as an
+    // Article's author/publisher only resolve when the node they point at is
+    // present in the same document.
+    let mut graph = vec![
+        local_business_schema(),
+        website_schema(),
+        image_object_schema(),
+    ];
+    graph.extend(page.schema.clone());
     if page.breadcrumbs.len() > 1 {
         graph.push(breadcrumb_schema(&page.breadcrumbs));
     }
+    // A page may name the site-wide hero as its own image; keep one node per @id.
+    let mut seen = std::collections::HashSet::new();
+    graph.retain(|node| match node.get("@id").and_then(Value::as_str) {
+        Some(id) => seen.insert(id.to_owned()),
+        None => true,
+    });
     let schema = json!({
         "@context": "https://schema.org",
         "@graph": graph
     });
+    let canonical_link = if page.indexable {
+        format!(
+            r#"<link rel="canonical" href="{}">"#,
+            escape_attr(&canonical)
+        )
+    } else {
+        String::new()
+    };
     let hooks = verification_and_analytics_hooks();
     let inquiry_script = inquiry_form_script();
     format!(
@@ -1059,7 +1264,7 @@ fn render_page(page: &Page) -> String {
 <meta name="robots" content="{robots}">
 <title>{title}</title>
 <meta name="description" content="{description}">
-<link rel="canonical" href="{canonical}">
+{canonical_link}
 <link rel="icon" type="image/png" href="/assets/favicon.png">
 <link rel="stylesheet" href="/styles.css">
 <meta name="theme-color" content="#285c4d">
@@ -1100,7 +1305,7 @@ fn render_page(page: &Page) -> String {
         robots = robots,
         title = escape_attr(&page.title),
         description = escape_attr(&page.description),
-        canonical = escape_attr(&canonical),
+        canonical_link = canonical_link,
         site_name = escape_attr(BUSINESS.name),
         origin = canonical_origin(),
         social_image = SOCIAL_IMAGE,
@@ -1340,7 +1545,8 @@ fn service_schema(service: &ServiceDefinition) -> Value {
         "description": service.summary,
         "provider": {"@id": format!("{}/#organization", canonical_origin())},
         "areaServed": service_area_schema(),
-        "serviceType": service.name
+        "serviceType": service.name,
+        "image": {"@id": format!("{}{}#image", canonical_origin(), service.image.webp())}
     })
 }
 
@@ -1396,6 +1602,39 @@ fn breadcrumb_schema(items: &[(&'static str, String)]) -> Value {
             "name": name,
             "item": format!("{}{}", canonical_origin(), path)
         })).collect::<Vec<_>>()
+    })
+}
+
+/// Renders a `<picture>` that prefers AVIF and falls back to WebP. Explicit
+/// width/height keep the box reserved before the bytes land, so the image
+/// cannot shift the layout.
+fn figure_markup(image: &PageImage, priority: bool) -> String {
+    let loading = if priority {
+        r#"fetchpriority="high""#
+    } else {
+        r#"loading="lazy""#
+    };
+    format!(
+        r#"<figure class="media-figure"><picture><source srcset="{avif}" type="image/avif"><img src="{webp}" alt="{alt}" width="{width}" height="{height}" {loading} decoding="async"></picture></figure>"#,
+        avif = image.avif(),
+        webp = image.webp(),
+        alt = escape_attr(image.alt),
+        width = image.width,
+        height = image.height,
+        loading = loading,
+    )
+}
+
+fn page_image_schema(image: &PageImage) -> Value {
+    json!({
+        "@type": "ImageObject",
+        "@id": format!("{}{}#image", canonical_origin(), image.webp()),
+        "url": format!("{}{}", canonical_origin(), image.webp()),
+        "contentUrl": format!("{}{}", canonical_origin(), image.webp()),
+        "caption": image.alt,
+        "width": image.width,
+        "height": image.height,
+        "encodingFormat": "image/webp"
     })
 }
 
@@ -1554,6 +1793,21 @@ fn obsolete_non_lorain_slug(slug: &str) -> bool {
     )
 }
 
+/// True when a filename embeds a content hash, as Trunk's build output does
+/// (`index-1a2b3c4d5e6f7890.js`). Such a URL changes whenever its bytes do, so
+/// it is safe to cache forever. `styles.css` and the files under `/assets` do
+/// not, so they must not be.
+fn is_fingerprinted(path: &str) -> bool {
+    let Some(name) = path.rsplit('/').next() else {
+        return false;
+    };
+    let Some((stem, _extension)) = name.rsplit_once('.') else {
+        return false;
+    };
+    stem.rsplit_once('-')
+        .is_some_and(|(_, hash)| hash.len() >= 8 && hash.chars().all(|ch| ch.is_ascii_hexdigit()))
+}
+
 fn normalize_path(path: &str) -> String {
     let without_query = path.split('?').next().unwrap_or(path);
     if without_query != "/" {
@@ -1663,15 +1917,16 @@ mod tests {
             .and_then(|value| value.as_array().cloned())
             .expect("json graph");
         let graph_text = serde_json::to_string(&graph).unwrap();
-        for schema_type in [
-            "LocalBusiness",
-            "PetService",
-            "WebSite",
-            "ImageObject",
-            "FAQPage",
-        ] {
+        for schema_type in ["LocalBusiness", "PetService", "WebSite", "ImageObject"] {
             assert!(graph_text.contains(schema_type), "{schema_type}");
         }
+        assert!(
+            !graph_text.contains("FAQPage"),
+            "the homepage must not compete with /faq for the same FAQ entity"
+        );
+        assert!(json_ld_blocks(&render_page(&faq_page()))
+            .join("")
+            .contains("FAQPage"));
         assert!(graph_text.contains("Elyria, OH"));
         assert!(graph_text.contains("North Ridgeville, OH"));
         assert!(!graph_text.contains("PostalAddress"));
@@ -1708,6 +1963,364 @@ mod tests {
 
         env::remove_var("PUBLIC_APP_URL");
         env::remove_var("PRODUCTION_SITE_URL");
+    }
+
+    #[test]
+    fn every_page_graph_resolves_its_own_id_references() {
+        let _guard = crate::ENV_LOCK
+            .lock()
+            .unwrap_or_else(|error| error.into_inner());
+        env::remove_var("COOPERCO_NOINDEX");
+        env::remove_var("PUBLIC_APP_URL");
+        env::remove_var("PUBLIC_SITE_URL");
+        env::remove_var("BACKEND_BASE_URL");
+        env::remove_var("PRODUCTION_SITE_URL");
+
+        for path in indexable_paths() {
+            let page = page_for_path(&path).expect("route");
+            let rendered = render_page(&page);
+            let graph = json_ld_blocks(&rendered)
+                .into_iter()
+                .next()
+                .and_then(|block| serde_json::from_str::<Value>(&block).ok())
+                .and_then(|value| value.get("@graph").cloned())
+                .and_then(|value| value.as_array().cloned())
+                .expect("json graph");
+
+            let defined = graph
+                .iter()
+                .filter_map(|node| node.get("@id").and_then(Value::as_str))
+                .map(str::to_owned)
+                .collect::<std::collections::HashSet<_>>();
+
+            let mut referenced = Vec::new();
+            collect_id_references(&Value::Array(graph.clone()), &mut referenced);
+            for reference in referenced {
+                assert!(
+                    defined.contains(&reference),
+                    "{path} references {reference} but never defines it"
+                );
+            }
+        }
+    }
+
+    /// Collects `{"@id": "..."}` reference objects, i.e. nodes that point at an
+    /// entity without describing one themselves.
+    fn collect_id_references(value: &Value, out: &mut Vec<String>) {
+        match value {
+            Value::Array(items) => items
+                .iter()
+                .for_each(|item| collect_id_references(item, out)),
+            Value::Object(map) => {
+                let is_reference = map.len() == 1 && map.contains_key("@id");
+                if is_reference {
+                    if let Some(id) = map.get("@id").and_then(Value::as_str) {
+                        out.push(id.to_owned());
+                    }
+                }
+                map.values()
+                    .for_each(|item| collect_id_references(item, out));
+            }
+            _ => {}
+        }
+    }
+
+    #[test]
+    fn service_pages_publish_a_sized_image_backed_by_real_assets() {
+        let _guard = crate::ENV_LOCK
+            .lock()
+            .unwrap_or_else(|error| error.into_inner());
+
+        for service in SERVICES {
+            let rendered = render_page(&service_page(service));
+            assert!(
+                rendered.contains(&format!(r#"src="{}""#, service.image.webp())),
+                "{} renders no image",
+                service.slug
+            );
+            assert!(
+                rendered.contains(&format!(r#"srcset="{}""#, service.image.avif())),
+                "{} offers no avif source",
+                service.slug
+            );
+            assert!(
+                rendered.contains(&format!(r#"alt="{}""#, escape_attr(service.image.alt))),
+                "{} image has no alt text",
+                service.slug
+            );
+            assert!(
+                rendered.contains(&format!(
+                    r#"width="{}" height="{}""#,
+                    service.image.width, service.image.height
+                )),
+                "{} image has no intrinsic dimensions",
+                service.slug
+            );
+
+            for extension in ["webp", "avif"] {
+                let asset = format!(
+                    "frontend/public/assets/{}.{extension}",
+                    service.image.basename
+                );
+                let workspace = std::path::Path::new(&asset);
+                let from_backend = std::path::PathBuf::from("..").join(&asset);
+                assert!(
+                    workspace.is_file() || from_backend.is_file(),
+                    "missing asset {asset}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn only_content_hashed_filenames_are_cached_immutably() {
+        for hashed in [
+            "index-1a2b3c4d5e6f7890.js",
+            "index-0123456789abcdef.css",
+            "dist/frontend-deadbeefcafe1234_bg-0123456789abcdef.wasm",
+        ] {
+            assert!(is_fingerprinted(hashed), "{hashed}");
+        }
+        for plain in [
+            "styles.css",
+            "assets/cooperco-pet-services-hero.webp",
+            "assets/facebook-cooperco-gallery-1.webp",
+            "assets/favicon.png",
+            "robots.txt",
+            "noextension",
+        ] {
+            assert!(!is_fingerprinted(plain), "{plain}");
+        }
+    }
+
+    #[test]
+    fn duplicate_urls_collapse_onto_one_address() {
+        assert_eq!(
+            duplicate_url_redirect("/contact/"),
+            Some("/contact".to_owned())
+        );
+        assert_eq!(
+            duplicate_url_redirect("/services/dog-training/"),
+            Some("/services/dog-training".to_owned())
+        );
+        assert_eq!(duplicate_url_redirect("/index.html"), Some("/".to_owned()));
+        assert_eq!(duplicate_url_redirect("/contact"), None);
+        assert_eq!(duplicate_url_redirect("/"), None);
+    }
+
+    /// `frontend/public/` holds copies of robots.txt and sitemap.xml for
+    /// deployments that serve the built `dist` directly. They had already
+    /// drifted from what Rocket generates, so pin them together.
+    #[test]
+    fn static_fallbacks_match_the_generated_output() {
+        let _guard = crate::ENV_LOCK
+            .lock()
+            .unwrap_or_else(|error| error.into_inner());
+        env::remove_var("COOPERCO_NOINDEX");
+        env::remove_var("PUBLIC_APP_URL");
+        env::remove_var("PUBLIC_SITE_URL");
+        env::remove_var("BACKEND_BASE_URL");
+        env::remove_var("PRODUCTION_SITE_URL");
+
+        for name in ["robots.txt", "robots"] {
+            let fallback = read_public_file(name);
+            assert_eq!(
+                fallback.trim(),
+                robots_body().trim(),
+                "frontend/public/{name} has drifted from robots_body()"
+            );
+        }
+
+        let generated = url_entries(&sitemap_body());
+        let fallback = url_entries(&read_public_file("sitemap.xml"));
+        assert_eq!(
+            fallback, generated,
+            "frontend/public/sitemap.xml has drifted from sitemap_body()"
+        );
+    }
+
+    fn read_public_file(name: &str) -> String {
+        let relative = format!("frontend/public/{name}");
+        std::fs::read_to_string(&relative)
+            .or_else(|_| std::fs::read_to_string(std::path::PathBuf::from("..").join(&relative)))
+            .unwrap_or_else(|error| panic!("read {relative}: {error}"))
+    }
+
+    /// Compares `<url>` entries rather than raw bytes, so the checked-in copy
+    /// may stay pretty-printed while Rocket answers on a single line.
+    fn url_entries(xml: &str) -> Vec<String> {
+        let mut entries = Vec::new();
+        let mut rest = xml;
+        while let Some(start) = rest.find("<url>") {
+            let after = &rest[start..];
+            let Some(end) = after.find("</url>") else {
+                break;
+            };
+            entries.push(after[.."</url>".len() + end].trim().to_owned());
+            rest = &after[end..];
+        }
+        entries
+    }
+
+    #[test]
+    fn no_faq_question_is_published_on_more_than_one_url() {
+        let _guard = crate::ENV_LOCK
+            .lock()
+            .unwrap_or_else(|error| error.into_inner());
+
+        let mut origin = std::collections::HashMap::new();
+        for path in indexable_paths() {
+            let page = page_for_path(&path).expect("route");
+            for schema in &page.schema {
+                if schema.get("@type").and_then(Value::as_str) != Some("FAQPage") {
+                    continue;
+                }
+                let questions = schema
+                    .get("mainEntity")
+                    .and_then(Value::as_array)
+                    .expect("mainEntity");
+                for question in questions {
+                    let name = question
+                        .get("name")
+                        .and_then(Value::as_str)
+                        .expect("question name")
+                        .to_owned();
+                    if let Some(other) = origin.insert(name.clone(), path.clone()) {
+                        panic!("{name:?} is marked up on both {other} and {path}");
+                    }
+                }
+            }
+        }
+        assert!(!origin.is_empty(), "no FAQ markup found at all");
+    }
+
+    /// Google truncates around 60 characters of title and 155 of description.
+    /// Overshooting loses the tail; undershooting wastes the slot.
+    #[test]
+    fn titles_and_descriptions_fit_the_serp() {
+        let _guard = crate::ENV_LOCK
+            .lock()
+            .unwrap_or_else(|error| error.into_inner());
+
+        let mut too_long = Vec::new();
+        let mut too_short = Vec::new();
+        for path in indexable_paths() {
+            let page = page_for_path(&path).expect("route");
+            let title = page.title.chars().count();
+            let description = page.description.chars().count();
+            if title > 60 {
+                too_long.push(format!("title {title} on {path}: {}", page.title));
+            }
+            if !(120..=158).contains(&description) {
+                let bucket = if description < 120 {
+                    &mut too_short
+                } else {
+                    &mut too_long
+                };
+                bucket.push(format!("description {description} on {path}"));
+            }
+        }
+        assert!(
+            too_long.is_empty() && too_short.is_empty(),
+            "over: {too_long:#?}\nunder: {too_short:#?}"
+        );
+    }
+
+    #[test]
+    fn every_page_has_one_h1_and_no_skipped_heading_levels() {
+        let _guard = crate::ENV_LOCK
+            .lock()
+            .unwrap_or_else(|error| error.into_inner());
+
+        for path in indexable_paths() {
+            let page = page_for_path(&path).expect("route");
+            let levels = heading_levels(&render_page(&page));
+            assert_eq!(
+                levels.iter().filter(|level| **level == 1).count(),
+                1,
+                "{path} does not have exactly one h1"
+            );
+            for pair in levels.windows(2) {
+                assert!(
+                    pair[1] <= pair[0] + 1,
+                    "{path} jumps from h{} to h{}",
+                    pair[0],
+                    pair[1]
+                );
+            }
+        }
+    }
+
+    fn heading_levels(html: &str) -> Vec<u32> {
+        let mut levels = Vec::new();
+        let mut rest = html;
+        while let Some(start) = rest.find("<h") {
+            let after = &rest[start + 2..];
+            let mut chars = after.chars();
+            if let (Some(digit), Some(next)) = (chars.next(), chars.next()) {
+                if let Some(level) = digit.to_digit(10) {
+                    if (1..=6).contains(&level) && (next == '>' || next == ' ') {
+                        levels.push(level);
+                    }
+                }
+            }
+            rest = after;
+        }
+        levels
+    }
+
+    /// The opening passage is what a featured snippet or an AI Overview lifts,
+    /// so it has to answer the page's question on its own, at a length that
+    /// survives extraction.
+    #[test]
+    fn service_and_article_pages_open_with_a_direct_answer() {
+        let _guard = crate::ENV_LOCK
+            .lock()
+            .unwrap_or_else(|error| error.into_inner());
+
+        let answers = SERVICES
+            .iter()
+            .map(|service| (service.slug, service.answer))
+            .chain(
+                ARTICLES
+                    .iter()
+                    .map(|article| (article.slug, article.answer)),
+            );
+
+        for (slug, answer) in answers {
+            let words = answer.split_whitespace().count();
+            assert!(
+                (35..=70).contains(&words),
+                "{slug} answer is {words} words, outside 35-70"
+            );
+            assert!(
+                answer.ends_with('.'),
+                "{slug} answer is not a complete passage"
+            );
+        }
+
+        for service in SERVICES {
+            let rendered = render_page(&service_page(service));
+            // Compare positions within the body: the summary also appears in the
+            // head, as the Service node's description.
+            let body = &rendered[rendered.find("<main").expect("main")..];
+            let answer_at = body.find(&escape(service.answer)).expect("answer");
+            let summary_at = body.find(&escape(service.summary)).expect("summary");
+            assert!(
+                answer_at < summary_at,
+                "{} buries its answer below the summary",
+                service.slug
+            );
+        }
+
+        for article in ARTICLES {
+            let rendered = render_page(&article_page(article));
+            assert!(
+                rendered.contains(&escape(article.answer)),
+                "{} renders no answer",
+                article.slug
+            );
+        }
     }
 
     #[test]

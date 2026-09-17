@@ -1407,7 +1407,7 @@ fn seed_content() -> SiteContent {
             phone: "(440) 276-1716".to_owned(),
             email: "cooper.copetservices@gmail.com".to_owned(),
             facebook_url: "https://www.facebook.com/CooperAndCoPet".to_owned(),
-            yelp_url: "https://m.yelp.com/biz/cooper-and-company-elyria".to_owned(),
+            yelp_url: "https://www.yelp.com/biz/cooper-and-company-elyria".to_owned(),
             intro: "Cooper & Co. serves Lorain County, including Elyria, Lorain, Amherst, Avon, and North Ridgeville. Ask about dog training, puppy training, and group dog classes.".to_owned(),
             hero_image: "/assets/cooperco-pet-services-hero.webp".to_owned(),
         },

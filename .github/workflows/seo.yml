@@ -1,0 +1,56 @@
+name: SEO audit
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+
+jobs:
+  route-audit:
+    name: Route-level SEO audit
+    # Deliberately not self-hosted: that runner also hosts the live Rocket
+    # instance, and this job binds a port and asserts on HTTP responses.
+    runs-on: ubuntu-latest
+
+    env:
+      # Not 9001, so this can never reach a production instance by accident.
+      ROCKET_PORT: "18099"
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Cargo dependencies
+        uses: Swatinem/rust-cache@v2
+
+      - name: Build backend
+        run: cargo build --release -p backend
+
+      - name: Audit routes against the built server
+        run: |
+          ./target/release/backend &
+          server=$!
+          trap 'kill "$server" 2>/dev/null || true' EXIT
+
+          for _ in $(seq 1 30); do
+            curl -sf --noproxy '*' -o /dev/null "http://127.0.0.1:${ROCKET_PORT}/" && break
+            sleep 1
+          done
+
+          # Fail loudly rather than auditing whatever else may be listening.
+          if ! kill -0 "$server" 2>/dev/null; then
+            echo "The audit server exited before accepting a request." >&2
+            exit 1
+          fi
+          if ! curl -sf --noproxy '*' -o /dev/null "http://127.0.0.1:${ROCKET_PORT}/"; then
+            echo "No server answered on ${ROCKET_PORT} within 30s." >&2
+            exit 1
+          fi
+
+          scripts/seo-audit.sh "http://127.0.0.1:${ROCKET_PORT}"

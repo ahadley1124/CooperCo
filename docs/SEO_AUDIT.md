@@ -46,3 +46,81 @@ Date: 2026-07-21
 - Final built `frontend/dist` and captured release HTTP output were scanned for obsolete city names, `TODO`, placeholder/address fields, beta sitemap entries, and unsupported service claims; no matches were found.
 - The local `scripts/seo-audit.ps1` route audit passed against the release server.
 - Lighthouse, axe, `html-validate`, and `linkchecker` CLIs were not installed in the workspace environment.
+
+## Follow-up Audit
+
+Date: 2026-09-17
+
+The 2026-07-21 remediation held: all 22 indexable URLs return `200`, each has
+exactly one H1, every JSON-LD block parses, the internal link graph contains no
+broken links and no orphans, and the sitemap matches a live crawl exactly.
+No crawl blocker, stray `noindex`, or client-rendering dependency was found.
+
+### Problems Found
+
+- Only the homepage defined the `LocalBusiness`, `WebSite` and `ImageObject`
+  nodes. Every other page referenced them by bare `@id`, so an `Article`'s
+  `author` and `publisher` pointed at an entity absent from the document.
+- 21 of 22 pages rendered no image. Three alt-texted AVIF+WebP pairs shipped in
+  the build but were referenced only from `/api/site`, which the server-rendered
+  marketing routes never load.
+- Every static file, including the unversioned `/styles.css`, was served
+  `immutable` for a year, so a stylesheet change could not reach returning
+  visitors or the Cloudflare edge after a deploy.
+- Six resource titles ran past ~60 characters; 19 descriptions sat under 120.
+- `/contact/` and `/contact` both returned `200` with identical HTML. The
+  `normalize_path()` guard never fired, because Rocket drops a trailing empty
+  path segment before a handler runs.
+- One hard-coded `lastmod` covered all 22 URLs while articles carried accurate
+  dates that went unused.
+- The three service pages emitted a byte-identical `FAQPage`, and the homepage
+  marked up a question matching `/faq` exactly.
+- The checked-in `frontend/public` robots and sitemap copies had drifted from
+  the generated output.
+- `404` responses advertised a canonical of `/404`, a URL that itself 404s.
+- `/services` and `/resources` skipped from `h1` to `h3`.
+- No page opened with a direct answer, and `scripts/seo-audit.ps1` could not run
+  on either CI runner.
+
+### Remediation Decisions
+
+- `render_page()` emits the organization, website and image nodes on every page
+  and de-duplicates the graph by `@id`; non-indexable pages emit no canonical.
+- Each service publishes a sized, alt-texted `<picture>` with an AVIF source and
+  a matching `ImageObject` referenced from its `Service` node.
+- Immutable caching is limited to content-hashed filenames; everything else
+  revalidates hourly, as do robots and sitemap responses.
+- `brand_title()` appends the brand only while the title still fits 60
+  characters. Descriptions are held between 120 and 158.
+- A `RawPath` guard 301s trailing-slash and `/index.html` duplicates.
+- Resource URLs report their article's `modified` date; the rest use
+  `SITE_LASTMOD`.
+- Each service answers its own questions and `/faq` is the single URL carrying
+  that `FAQPage` entity.
+- Service and resource pages open with a 35-70 word direct answer.
+- `scripts/seo-audit.sh` runs the route-level checks in CI.
+
+### Validation Results
+
+- `cargo fmt --all -- --check`, `cargo check --workspace`,
+  `cargo test --workspace` (40 tests), and
+  `cargo clippy --workspace --all-targets --all-features -- -D warnings`: passed.
+- `scripts/seo-audit.sh` passed against a locally built server.
+- Live re-crawl: 22 URLs, no broken internal links, no orphans, sitemap parity.
+
+### Still Requires the Owner
+
+- `LocalBusiness` publishes no `logo`. The only logo in the repository is
+  watermarked into `facebook-cooperco-gallery-1.webp`; `favicon.png` is 64x64,
+  below the 112x112 Google expects. A standalone logo asset is needed.
+- `facebook-cooperco-gallery-1.webp` and `-2.webp` are letterboxed into a
+  1200x1200 canvas with the photograph occupying roughly the centre half. They
+  need cropped originals before they can be published at page width.
+- `cooperco-pet-services-hero`, `puppy-training-lorain-county` and
+  `group-dog-classes-lorain-county` do not appear to be photographs of this
+  business. `content/business_profile.toml` still lists `approved_photographs`
+  as owner-confirmation-required.
+- `/about`, `/privacy` and `/accessibility` remain single-paragraph pages, and
+  `/service-areas` lists its cities as plain text.
+- Only one size exists per image, so no responsive `srcset` width set can be
+  offered until additional sizes are produced.
