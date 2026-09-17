@@ -25,24 +25,30 @@ curl_raw() {
 	curl -s --noproxy '*' "$@"
 }
 
+# The network helpers below absorb curl's exit status on purpose. Under
+# `set -e` a connection error inside a command substitution kills the whole
+# script, which would stop the audit at the first unreachable URL instead of
+# reporting it and carrying on. curl still prints an HTTP code of 000, and the
+# explicit checks below turn that into a counted failure.
+
 status_of() {
-	curl_raw -o /dev/null -w '%{http_code}' "$BASE_URL$1"
+	curl_raw -o /dev/null -w '%{http_code}' "$BASE_URL$1" || true
 }
 
 header_of() {
-	curl_raw -o /dev/null -D - "$BASE_URL$1" |
+	{ curl_raw -o /dev/null -D - "$BASE_URL$1" || true; } |
 		awk -v name="$(printf '%s' "$2" | tr '[:upper:]' '[:lower:]')" \
 			'tolower($0) ~ "^" name ":" { sub(/^[^:]*: */, ""); gsub(/\r/, ""); print; exit }'
 }
 
 body_of() {
-	curl_raw "$BASE_URL$1"
+	curl_raw "$BASE_URL$1" || true
 }
 
 echo "SEO audit: $BASE_URL"
 
 echo "- marketing routes"
-ROUTES=$(body_of /sitemap.xml | grep -o '<loc>[^<]*</loc>' | sed 's|<loc>[^/]*//[^/]*||; s|</loc>||')
+ROUTES=$(body_of /sitemap.xml | grep -o '<loc>[^<]*</loc>' | sed 's|<loc>[^/]*//[^/]*||; s|</loc>||' || true)
 if [ -z "$ROUTES" ]; then
 	fail "sitemap.xml listed no URLs"
 fi
