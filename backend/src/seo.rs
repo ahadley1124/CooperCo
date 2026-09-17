@@ -193,7 +193,7 @@ pub const SERVICES: &[ServiceDefinition] = &[
         slug: "dog-training",
         name: "Dog training",
         page_title: "Dog Training in Lorain County, Ohio | Cooper & Co.",
-        description: "Ask Cooper & Co. about dog training in Lorain County, including Elyria, Lorain, Amherst, Avon, and North Ridgeville.",
+        description: "Ask Cooper & Co. about dog training in Lorain County, Ohio, covering leash manners, focus, and everyday skills. Serving Elyria, Lorain, Amherst and Avon.",
         summary: "Dog training inquiries can cover leash manners, focus, everyday skills, and current training goals.",
         audience: "Appropriate for dog owners who want clearer expectations, practical skills, and help choosing a class or training path.",
         image: PageImage {
@@ -223,7 +223,7 @@ pub const SERVICES: &[ServiceDefinition] = &[
         slug: "puppy-training",
         name: "Puppy training",
         page_title: "Puppy Training in Lorain County | Cooper & Co.",
-        description: "Ask Cooper & Co. about puppy training in Lorain County, including Elyria, Lorain, Amherst, Avon, and North Ridgeville.",
+        description: "Ask Cooper & Co. about puppy training in Lorain County, Ohio, covering early manners, routines, and class readiness. Serving Elyria, Lorain and Amherst.",
         summary: "Puppy training inquiries focus on early manners, confidence, routines, and class readiness.",
         audience: "Appropriate for puppy owners who want early guidance without overwhelming a young dog.",
         image: PageImage {
@@ -253,7 +253,7 @@ pub const SERVICES: &[ServiceDefinition] = &[
         slug: "group-dog-classes",
         name: "Group dog classes",
         page_title: "Group Dog Classes in Lorain County | Cooper & Co.",
-        description: "Ask Cooper & Co. about group dog classes in Lorain County, including class fit, preparation, and availability.",
+        description: "Ask Cooper & Co. about group dog classes in Lorain County, Ohio, including class fit, what to prepare, and current availability. Send your dog's details.",
         summary: "Group dog class inquiries help determine class fit, readiness, goals, and current openings.",
         audience: "Appropriate for owners who want structured practice around other dogs and people when group settings are a fit.",
         image: PageImage {
@@ -285,7 +285,7 @@ pub const ARTICLES: &[ResourceArticle] = &[
     ResourceArticle {
         slug: "what-to-expect-from-a-group-dog-training-class",
         title: "What to Expect From a Group Dog Training Class",
-        description: "A practical overview of group dog class structure, preparation, and realistic training expectations.",
+        description: "A practical overview of how a group dog class runs, what to prepare beforehand, and the training expectations that are realistic for a first class.",
         service_slug: "group-dog-classes",
         published: "2026-07-19",
         modified: "2026-07-19",
@@ -298,7 +298,7 @@ pub const ARTICLES: &[ResourceArticle] = &[
     ResourceArticle {
         slug: "preparing-your-puppy-for-its-first-training-class",
         title: "Preparing Your Puppy for Its First Training Class",
-        description: "Help your puppy arrive ready for a first training class with simple planning and health-aware questions.",
+        description: "Help your puppy arrive ready for a first training class, with simple planning, handling practice, and the health questions worth asking a veterinarian first.",
         service_slug: "puppy-training",
         published: "2026-07-19",
         modified: "2026-07-19",
@@ -311,7 +311,7 @@ pub const ARTICLES: &[ResourceArticle] = &[
     ResourceArticle {
         slug: "basic-leash-skills-to-practice-at-home",
         title: "Basic Leash Skills to Practice at Home",
-        description: "Simple leash-skill ideas dog owners can practice at home before asking about training support.",
+        description: "Simple leash-skill ideas dog owners in Lorain County can practice at home, in short sessions, before asking Cooper & Co. about training support.",
         service_slug: "dog-training",
         published: "2026-07-19",
         modified: "2026-07-19",
@@ -324,7 +324,7 @@ pub const ARTICLES: &[ResourceArticle] = &[
     ResourceArticle {
         slug: "how-to-choose-a-dog-trainer-in-lorain-county",
         title: "How to Choose a Dog Trainer in Lorain County",
-        description: "Questions Lorain County dog owners can ask when evaluating a trainer, class, or training program.",
+        description: "Questions Lorain County dog owners can ask when comparing a trainer, class, or training program, and the answers worth confirming before you commit.",
         service_slug: "dog-training",
         published: "2026-07-19",
         modified: "2026-07-19",
@@ -337,7 +337,7 @@ pub const ARTICLES: &[ResourceArticle] = &[
     ResourceArticle {
         slug: "questions-to-ask-before-joining-a-group-dog-class",
         title: "Questions to Ask Before Joining a Group Dog Class",
-        description: "Use these practical questions to decide whether a group dog class is a safe and useful fit.",
+        description: "Use these practical questions to decide whether a group dog class is a safe and useful fit for your dog, and what to confirm with the trainer beforehand.",
         service_slug: "group-dog-classes",
         published: "2026-07-19",
         modified: "2026-07-19",
@@ -350,7 +350,7 @@ pub const ARTICLES: &[ResourceArticle] = &[
     ResourceArticle {
         slug: "puppy-socialization-without-overwhelming-your-puppy",
         title: "Puppy Socialization Without Overwhelming Your Puppy",
-        description: "A calm approach to puppy socialization that prioritizes confidence, safety, and veterinarian guidance.",
+        description: "A calm approach to puppy socialization that puts confidence, safety, and veterinarian guidance ahead of exposure for its own sake. Read it before class.",
         service_slug: "puppy-training",
         published: "2026-07-19",
         modified: "2026-07-19",
@@ -363,7 +363,7 @@ pub const ARTICLES: &[ResourceArticle] = &[
     ResourceArticle {
         slug: "helping-a-dog-stay-focused-around-distractions",
         title: "Helping a Dog Stay Focused Around Distractions",
-        description: "Practical ways to build focus around everyday distractions without expecting instant results.",
+        description: "Practical ways to build a dog's focus around everyday distractions, in short sessions and realistic settings, without expecting instant results.",
         service_slug: "dog-training",
         published: "2026-07-19",
         modified: "2026-07-19",
@@ -376,7 +376,7 @@ pub const ARTICLES: &[ResourceArticle] = &[
     ResourceArticle {
         slug: "what-to-bring-to-a-dog-training-class",
         title: "What to Bring to a Dog Training Class",
-        description: "A simple packing list for dog training or puppy class, plus questions to confirm before attending.",
+        description: "A simple packing list for a dog training or puppy class, plus the handling notes and questions worth confirming with the trainer before you attend.",
         service_slug: "group-dog-classes",
         published: "2026-07-19",
         modified: "2026-07-19",
@@ -389,7 +389,7 @@ pub const ARTICLES: &[ResourceArticle] = &[
     ResourceArticle {
         slug: "dog-training-goals-how-to-set-realistic-expectations",
         title: "Dog Training Goals: How to Set Realistic Expectations",
-        description: "Set practical dog training goals that account for practice, environment, dog age, and safety.",
+        description: "Set practical dog training goals that account for how much you can practice, the environment, your dog's age, and the safety limits that apply.",
         service_slug: "dog-training",
         published: "2026-07-19",
         modified: "2026-07-19",
@@ -402,7 +402,7 @@ pub const ARTICLES: &[ResourceArticle] = &[
     ResourceArticle {
         slug: "indoor-dog-enrichment-ideas-for-ohio-winters",
         title: "Indoor Dog-Enrichment Ideas for Ohio Winters",
-        description: "Low-pressure indoor enrichment ideas for cold Ohio weather when outdoor practice is limited.",
+        description: "Low-pressure indoor enrichment ideas for cold Ohio winters, for the weeks when outdoor practice is limited and a dog still needs something to work on.",
         service_slug: "dog-training",
         published: "2026-07-19",
         modified: "2026-07-19",
@@ -910,8 +910,8 @@ fn home() -> Page {
 fn about() -> Page {
     basic_page(
         "/about",
-        "About Cooper & Co. in Lorain County | Cooper & Co.",
-        "Learn how to contact Cooper & Co. for dog training, puppy training, and group dog class inquiries in Lorain County.",
+        "About Cooper & Co. | Dog Training in Lorain County",
+        "Learn how to reach Cooper & Co. about dog training, puppy training, and group dog classes in Lorain County, Ohio, and what to include in a first inquiry.",
         "About Cooper & Co.",
         "Cooper & Co. serves Lorain County, including Elyria, Lorain, Amherst, Avon, and North Ridgeville. Use the listed phone, email, Facebook, Yelp, or inquiry form to ask about dog training, puppy training, and group dog classes.",
         "AboutPage",
@@ -921,13 +921,13 @@ fn about() -> Page {
 fn services_index() -> Page {
     let cards = SERVICES.iter().map(service_card).collect::<String>();
     let body = format!(
-        r#"<section class="section page-hero" aria-labelledby="services-title"><p class="eyebrow">Services</p><h1 id="services-title">Dog training services from Cooper &amp; Co.</h1><p>Use these pages to share dog details, training goals, Lorain County location, and preferred timing.</p></section><section class="section"><div class="service-grid">{cards}</div></section>{contact}"#,
+        r#"<section class="section page-hero" aria-labelledby="services-title"><p class="eyebrow">Services</p><h1 id="services-title">Dog training services from Cooper &amp; Co.</h1><p>Use these pages to share dog details, training goals, Lorain County location, and preferred timing.</p></section><section class="section" aria-labelledby="services-published"><div class="section-heading"><h2 id="services-published">Published services</h2></div><div class="service-grid">{cards}</div></section>{contact}"#,
         contact = contact_section("Ask which training option fits your dog")
     );
     Page {
         path: "/services".to_owned(),
         title: "Dog Training Services in Lorain County | Cooper & Co.".to_owned(),
-        description: "Explore Cooper & Co. dog training, puppy training, and group dog class inquiry pages for Lorain County pet owners.".to_owned(),
+        description: "Explore Cooper & Co. dog training, puppy training, and group dog class pages for Lorain County pet owners, then send the details of your dog and goals.".to_owned(),
         h1: "Dog training services from Cooper & Co.".to_owned(),
         body,
         breadcrumbs: vec![("Home", "/".to_owned()), ("Services", "/services".to_owned())],
@@ -951,7 +951,7 @@ fn service_page(service: &ServiceDefinition) -> Page {
 <section class="section faq" aria-labelledby="service-faq"><div class="section-heading"><p class="eyebrow">FAQ</p><h2 id="service-faq">Service questions</h2></div>{faq}</section>
 <section class="section" aria-labelledby="related"><div class="section-heading"><p class="eyebrow">Resources</p><h2 id="related">Related resources</h2></div><div class="service-grid">{related}</div></section>
 {contact}"#,
-        h1 = escape(service.name),
+        h1 = escape(&service_h1(service)),
         summary = escape(service.summary),
         figure = figure_markup(&service.image, true),
         audience = escape(service.audience),
@@ -968,7 +968,7 @@ fn service_page(service: &ServiceDefinition) -> Page {
         path: path.clone(),
         title: service.page_title.to_owned(),
         description: service.description.to_owned(),
-        h1: service.name.to_owned(),
+        h1: service_h1(service),
         body,
         breadcrumbs: vec![
             ("Home", "/".to_owned()),
@@ -985,6 +985,15 @@ fn service_page(service: &ServiceDefinition) -> Page {
     }
 }
 
+/// "Dog training" alone says nothing about where. The title already carries the
+/// county, so the visible heading should too.
+fn service_h1(service: &ServiceDefinition) -> String {
+    format!(
+        "{} in {}, {}",
+        service.name, BUSINESS.county, BUSINESS.state
+    )
+}
+
 fn service_areas_index() -> Page {
     let areas = SERVICE_AREAS
         .iter()
@@ -998,7 +1007,7 @@ fn service_areas_index() -> Page {
     Page {
         path: "/service-areas".to_owned(),
         title: "Service Areas in Lorain County | Cooper & Co.".to_owned(),
-        description: "Cooper & Co. serves Lorain County, including Elyria, Lorain, Amherst, Avon, and North Ridgeville, Ohio.".to_owned(),
+        description: "Cooper & Co. serves Lorain County, Ohio, including Elyria, Lorain, Amherst, Avon, and North Ridgeville. Include your city or ZIP code in your inquiry.".to_owned(),
         h1: "Cooper & Co. service area".to_owned(),
         body,
         breadcrumbs: vec![
@@ -1013,13 +1022,13 @@ fn service_areas_index() -> Page {
 fn resources_index() -> Page {
     let cards = ARTICLES.iter().map(resource_card).collect::<String>();
     let body = format!(
-        r#"<section class="section page-hero" aria-labelledby="resources-title"><p class="eyebrow">Resources</p><h1 id="resources-title">Dog training resources</h1><p>Educational articles help owners prepare thoughtful questions before contacting Cooper &amp; Co. Medical concerns should be directed to a qualified veterinarian.</p></section><section class="section"><div class="service-grid">{cards}</div></section>{contact}"#,
+        r#"<section class="section page-hero" aria-labelledby="resources-title"><p class="eyebrow">Resources</p><h1 id="resources-title">Dog training resources</h1><p>Educational articles help owners prepare thoughtful questions before contacting Cooper &amp; Co. Medical concerns should be directed to a qualified veterinarian.</p></section><section class="section" aria-labelledby="resources-published"><div class="section-heading"><h2 id="resources-published">All articles</h2></div><div class="service-grid">{cards}</div></section>{contact}"#,
         contact = contact_section("Ask a dog training question")
     );
     Page {
         path: "/resources".to_owned(),
         title: "Dog Training Resources | Cooper & Co.".to_owned(),
-        description: "Read Cooper & Co. resources about group classes, puppy preparation, leash skills, and training expectations.".to_owned(),
+        description: "Read Cooper & Co. articles on group classes, puppy preparation, leash skills, and training expectations before you ask about dog training in Lorain County.".to_owned(),
         h1: "Dog training resources".to_owned(),
         body,
         breadcrumbs: vec![("Home", "/".to_owned()), ("Resources", "/resources".to_owned())],
@@ -1064,7 +1073,7 @@ fn article_page(article: &ResourceArticle) -> Page {
     let path = format!("/resources/{}", article.slug);
     Page {
         path: path.clone(),
-        title: format!("{} | Cooper & Co.", article.title),
+        title: brand_title(article.title),
         description: article.description.to_owned(),
         h1: article.title.to_owned(),
         body,
@@ -1086,7 +1095,7 @@ fn contact() -> Page {
     Page {
         path: "/contact".to_owned(),
         title: "Contact Cooper & Co. in Lorain County".to_owned(),
-        description: "Contact Cooper & Co. by phone, email, Facebook, Yelp, or inquiry form about Lorain County dog training and classes.".to_owned(),
+        description: "Contact Cooper & Co. by phone, email, Facebook, Yelp, or the inquiry form about dog training, puppy training, and group dog classes in Lorain County, Ohio.".to_owned(),
         h1: "Contact Cooper & Co.".to_owned(),
         body,
         breadcrumbs: vec![("Home", "/".to_owned()), ("Contact", "/contact".to_owned())],
@@ -1130,7 +1139,7 @@ fn privacy() -> Page {
     basic_page(
         "/privacy",
         "Privacy Policy | Cooper & Co.",
-        "Read how Cooper & Co. website inquiries collect contact and pet-service details for follow-up.",
+        "Read how Cooper & Co. handles website inquiries, which contact and pet-service details the form collects, and what should never be sent through this website.",
         "Privacy policy",
         "The inquiry form collects contact information and pet-service details so Cooper & Co. can respond. Do not submit private medical details, financial information, or emergency information through the website.",
         "WebPage",
@@ -1170,6 +1179,18 @@ fn basic_page(
         breadcrumbs: vec![("Home", "/".to_owned()), (h1, path.to_owned())],
         schema: vec![webpage_schema(path, schema_type)],
         indexable: true,
+    }
+}
+
+/// Appends the brand only while the result still fits the ~60 characters a
+/// result page shows. A truncated title loses its tail, which matters more than
+/// a brand that already appears in the URL and the breadcrumb.
+fn brand_title(title: &str) -> String {
+    let suffix = format!(" | {}", BUSINESS.name);
+    if title.chars().count() + suffix.chars().count() <= 60 {
+        format!("{title}{suffix}")
+    } else {
+        title.to_owned()
     }
 }
 
@@ -2150,6 +2171,81 @@ mod tests {
             }
         }
         assert!(!origin.is_empty(), "no FAQ markup found at all");
+    }
+
+    /// Google truncates around 60 characters of title and 155 of description.
+    /// Overshooting loses the tail; undershooting wastes the slot.
+    #[test]
+    fn titles_and_descriptions_fit_the_serp() {
+        let _guard = crate::ENV_LOCK
+            .lock()
+            .unwrap_or_else(|error| error.into_inner());
+
+        let mut too_long = Vec::new();
+        let mut too_short = Vec::new();
+        for path in indexable_paths() {
+            let page = page_for_path(&path).expect("route");
+            let title = page.title.chars().count();
+            let description = page.description.chars().count();
+            if title > 60 {
+                too_long.push(format!("title {title} on {path}: {}", page.title));
+            }
+            if !(120..=158).contains(&description) {
+                let bucket = if description < 120 {
+                    &mut too_short
+                } else {
+                    &mut too_long
+                };
+                bucket.push(format!("description {description} on {path}"));
+            }
+        }
+        assert!(
+            too_long.is_empty() && too_short.is_empty(),
+            "over: {too_long:#?}\nunder: {too_short:#?}"
+        );
+    }
+
+    #[test]
+    fn every_page_has_one_h1_and_no_skipped_heading_levels() {
+        let _guard = crate::ENV_LOCK
+            .lock()
+            .unwrap_or_else(|error| error.into_inner());
+
+        for path in indexable_paths() {
+            let page = page_for_path(&path).expect("route");
+            let levels = heading_levels(&render_page(&page));
+            assert_eq!(
+                levels.iter().filter(|level| **level == 1).count(),
+                1,
+                "{path} does not have exactly one h1"
+            );
+            for pair in levels.windows(2) {
+                assert!(
+                    pair[1] <= pair[0] + 1,
+                    "{path} jumps from h{} to h{}",
+                    pair[0],
+                    pair[1]
+                );
+            }
+        }
+    }
+
+    fn heading_levels(html: &str) -> Vec<u32> {
+        let mut levels = Vec::new();
+        let mut rest = html;
+        while let Some(start) = rest.find("<h") {
+            let after = &rest[start + 2..];
+            let mut chars = after.chars();
+            if let (Some(digit), Some(next)) = (chars.next(), chars.next()) {
+                if let Some(level) = digit.to_digit(10) {
+                    if (1..=6).contains(&level) && (next == '>' || next == ' ') {
+                        levels.push(level);
+                    }
+                }
+            }
+            rest = after;
+        }
+        levels
     }
 
     #[test]
