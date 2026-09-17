@@ -10,7 +10,9 @@ use rocket::{
 use serde_json::{json, Value};
 
 const PRODUCTION_ORIGIN: &str = "https://cooper-and-co.com";
-const LASTMOD: &str = "2026-07-21";
+/// Fallback change date for pages that carry no date of their own. Update it
+/// when the marketing copy or layout of those pages changes.
+const SITE_LASTMOD: &str = "2026-09-17";
 const SOCIAL_IMAGE: &str = "/assets/cooperco-pet-services-hero.webp";
 const SOCIAL_IMAGE_ALT: &str =
     "Black and tan dog on a leash in a park with dog-training cones in the background";
@@ -632,11 +634,14 @@ pub fn sitemap_body() -> String {
     let urls = indexable_paths()
         .iter()
         .map(|path| {
+            let (changefreq, priority) = crawl_hints(path);
             format!(
-                "<url><loc>{}{}</loc><lastmod>{LASTMOD}</lastmod><changefreq>monthly</changefreq><priority>{}</priority></url>",
+                "<url><loc>{}{}</loc><lastmod>{}</lastmod><changefreq>{}</changefreq><priority>{}</priority></url>",
                 canonical_origin(),
                 path,
-                if path == "/" { "1.0" } else { "0.8" }
+                lastmod_for(path),
+                changefreq,
+                priority
             )
         })
         .collect::<String>();
@@ -644,6 +649,24 @@ pub fn sitemap_body() -> String {
     format!(
         r#"<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">{urls}</urlset>"#
     )
+}
+
+/// Resource pages carry their own modification date; everything else falls back
+/// to the site-wide date. A single hard-coded date across every URL tells a
+/// crawler nothing about which pages actually changed.
+pub fn lastmod_for(path: &str) -> &'static str {
+    path.strip_prefix("/resources/")
+        .and_then(|slug| ARTICLES.iter().find(|article| article.slug == slug))
+        .map(|article| article.modified)
+        .unwrap_or(SITE_LASTMOD)
+}
+
+fn crawl_hints(path: &str) -> (&'static str, &'static str) {
+    match path {
+        "/" => ("monthly", "1.0"),
+        "/privacy" | "/accessibility" => ("yearly", "0.5"),
+        _ => ("monthly", "0.8"),
+    }
 }
 
 pub fn indexable_paths() -> Vec<String> {
@@ -2013,6 +2036,60 @@ mod tests {
         assert_eq!(duplicate_url_redirect("/index.html"), Some("/".to_owned()));
         assert_eq!(duplicate_url_redirect("/contact"), None);
         assert_eq!(duplicate_url_redirect("/"), None);
+    }
+
+    /// `frontend/public/` holds copies of robots.txt and sitemap.xml for
+    /// deployments that serve the built `dist` directly. They had already
+    /// drifted from what Rocket generates, so pin them together.
+    #[test]
+    fn static_fallbacks_match_the_generated_output() {
+        let _guard = crate::ENV_LOCK
+            .lock()
+            .unwrap_or_else(|error| error.into_inner());
+        env::remove_var("COOPERCO_NOINDEX");
+        env::remove_var("PUBLIC_APP_URL");
+        env::remove_var("PUBLIC_SITE_URL");
+        env::remove_var("BACKEND_BASE_URL");
+        env::remove_var("PRODUCTION_SITE_URL");
+
+        for name in ["robots.txt", "robots"] {
+            let fallback = read_public_file(name);
+            assert_eq!(
+                fallback.trim(),
+                robots_body().trim(),
+                "frontend/public/{name} has drifted from robots_body()"
+            );
+        }
+
+        let generated = url_entries(&sitemap_body());
+        let fallback = url_entries(&read_public_file("sitemap.xml"));
+        assert_eq!(
+            fallback, generated,
+            "frontend/public/sitemap.xml has drifted from sitemap_body()"
+        );
+    }
+
+    fn read_public_file(name: &str) -> String {
+        let relative = format!("frontend/public/{name}");
+        std::fs::read_to_string(&relative)
+            .or_else(|_| std::fs::read_to_string(std::path::PathBuf::from("..").join(&relative)))
+            .unwrap_or_else(|error| panic!("read {relative}: {error}"))
+    }
+
+    /// Compares `<url>` entries rather than raw bytes, so the checked-in copy
+    /// may stay pretty-printed while Rocket answers on a single line.
+    fn url_entries(xml: &str) -> Vec<String> {
+        let mut entries = Vec::new();
+        let mut rest = xml;
+        while let Some(start) = rest.find("<url>") {
+            let after = &rest[start..];
+            let Some(end) = after.find("</url>") else {
+                break;
+            };
+            entries.push(after[.."</url>".len() + end].trim().to_owned());
+            rest = &after[end..];
+        }
+        entries
     }
 
     #[test]
