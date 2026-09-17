@@ -5,6 +5,7 @@
 - Run `cargo test --workspace`.
 - Run `cargo clippy --workspace --all-targets --all-features -- -D warnings`.
 - Run `trunk build --release --config frontend/Trunk.toml`.
+- Run `scripts/seo-audit.sh <base-url>` against the running build.
 - Start Rocket from the production build.
 - Inspect raw HTML for every sitemap URL.
 - Verify `/robots.txt` and `/sitemap.xml`.
