@@ -28,6 +28,26 @@ pub struct BusinessProfile {
     pub yelp_url: &'static str,
 }
 
+/// An image published on a page. `basename` names an asset that exists in both
+/// AVIF and WebP form under `/assets`.
+#[derive(Clone, Copy, Debug)]
+pub struct PageImage {
+    pub basename: &'static str,
+    pub alt: &'static str,
+    pub width: u32,
+    pub height: u32,
+}
+
+impl PageImage {
+    fn webp(&self) -> String {
+        format!("/assets/{}.webp", self.basename)
+    }
+
+    fn avif(&self) -> String {
+        format!("/assets/{}.avif", self.basename)
+    }
+}
+
 #[derive(Clone, Copy, Debug)]
 pub struct ServiceDefinition {
     pub slug: &'static str,
@@ -36,6 +56,7 @@ pub struct ServiceDefinition {
     pub description: &'static str,
     pub summary: &'static str,
     pub audience: &'static str,
+    pub image: PageImage,
     pub process: &'static [&'static str],
     pub prepare: &'static [&'static str],
     pub faq: &'static [FaqItem],
@@ -141,6 +162,12 @@ pub const SERVICES: &[ServiceDefinition] = &[
         description: "Ask Cooper & Co. about dog training in Lorain County, including Elyria, Lorain, Amherst, Avon, and North Ridgeville.",
         summary: "Dog training inquiries can cover leash manners, focus, everyday skills, and current training goals.",
         audience: "Appropriate for dog owners who want clearer expectations, practical skills, and help choosing a class or training path.",
+        image: PageImage {
+            basename: "cooperco-pet-services-hero",
+            alt: SOCIAL_IMAGE_ALT,
+            width: 1600,
+            height: 900,
+        },
         process: &[
             "Send an inquiry with your city, dog details, and training goals.",
             "Cooper & Co. reviews fit, timing, and the next step.",
@@ -165,6 +192,12 @@ pub const SERVICES: &[ServiceDefinition] = &[
         description: "Ask Cooper & Co. about puppy training in Lorain County, including Elyria, Lorain, Amherst, Avon, and North Ridgeville.",
         summary: "Puppy training inquiries focus on early manners, confidence, routines, and class readiness.",
         audience: "Appropriate for puppy owners who want early guidance without overwhelming a young dog.",
+        image: PageImage {
+            basename: "puppy-training-lorain-county",
+            alt: "Golden puppy in a teal collar sitting on grass, watching a kneeling handler beside a treat pouch",
+            width: 1200,
+            height: 1200,
+        },
         process: &[
             "Share puppy age, relevant health details, and goals.",
             "Cooper & Co. confirms whether the current format is a fit.",
@@ -189,6 +222,12 @@ pub const SERVICES: &[ServiceDefinition] = &[
         description: "Ask Cooper & Co. about group dog classes in Lorain County, including class fit, preparation, and availability.",
         summary: "Group dog class inquiries help determine class fit, readiness, goals, and current openings.",
         audience: "Appropriate for owners who want structured practice around other dogs and people when group settings are a fit.",
+        image: PageImage {
+            basename: "group-dog-classes-lorain-county",
+            alt: "Five dogs sitting on leash beside their handlers on grass during an outdoor group class",
+            width: 1200,
+            height: 1200,
+        },
         process: &[
             "Describe your dog's age, temperament, and goals before class.",
             "Cooper & Co. confirms whether the current group format is appropriate.",
@@ -802,7 +841,7 @@ fn service_page(service: &ServiceDefinition) -> Page {
         .map(resource_card)
         .collect::<String>();
     let body = format!(
-        r#"<section class="section page-hero" aria-labelledby="service-title"><p class="eyebrow">Service</p><h1 id="service-title">{h1}</h1><p>{summary}</p><div class="hero-actions"><a class="button primary" href="/contact">Request information</a><a class="button secondary on-light" href="tel:{phone_e164}">{phone}</a></div></section>
+        r#"<section class="section page-hero" aria-labelledby="service-title"><p class="eyebrow">Service</p><h1 id="service-title">{h1}</h1><p>{summary}</p><div class="hero-actions"><a class="button primary" href="/contact">Request information</a><a class="button secondary on-light" href="tel:{phone_e164}">{phone}</a></div>{figure}</section>
 <section class="section" aria-labelledby="service-fit"><div class="section-heading"><p class="eyebrow">Fit</p><h2 id="service-fit">Who this may help</h2><p>{audience}</p></div></section>
 <section class="section split" aria-labelledby="service-process"><div><p class="eyebrow">Process</p><h2 id="service-process">Expected inquiry process</h2>{process}</div><div><p class="eyebrow">Prepare</p><h2>What to share</h2>{prepare}</div></section>
 <section class="section" aria-labelledby="availability"><div class="section-heading"><p class="eyebrow">Availability</p><h2 id="availability">Lorain County service area</h2><p>Cooper &amp; Co. serves Lorain County, including Elyria, Lorain, Amherst, Avon, and North Ridgeville. Include your city or ZIP code when you ask about fit.</p></div><a class="button secondary on-light" href="/service-areas">View service area</a></section>
@@ -811,6 +850,7 @@ fn service_page(service: &ServiceDefinition) -> Page {
 {contact}"#,
         h1 = escape(service.name),
         summary = escape(service.summary),
+        figure = figure_markup(&service.image, true),
         audience = escape(service.audience),
         process = list_markup(service.process),
         prepare = list_markup(service.prepare),
@@ -835,6 +875,7 @@ fn service_page(service: &ServiceDefinition) -> Page {
         schema: vec![
             webpage_schema(&path, "WebPage"),
             service_schema(service),
+            page_image_schema(&service.image),
             faq_schema(&path, service.faq),
         ],
         indexable: true,
@@ -1049,6 +1090,12 @@ fn render_page(page: &Page) -> String {
     if page.breadcrumbs.len() > 1 {
         graph.push(breadcrumb_schema(&page.breadcrumbs));
     }
+    // A page may name the site-wide hero as its own image; keep one node per @id.
+    let mut seen = std::collections::HashSet::new();
+    graph.retain(|node| match node.get("@id").and_then(Value::as_str) {
+        Some(id) => seen.insert(id.to_owned()),
+        None => true,
+    });
     let schema = json!({
         "@context": "https://schema.org",
         "@graph": graph
@@ -1353,7 +1400,8 @@ fn service_schema(service: &ServiceDefinition) -> Value {
         "description": service.summary,
         "provider": {"@id": format!("{}/#organization", canonical_origin())},
         "areaServed": service_area_schema(),
-        "serviceType": service.name
+        "serviceType": service.name,
+        "image": {"@id": format!("{}{}#image", canonical_origin(), service.image.webp())}
     })
 }
 
@@ -1409,6 +1457,39 @@ fn breadcrumb_schema(items: &[(&'static str, String)]) -> Value {
             "name": name,
             "item": format!("{}{}", canonical_origin(), path)
         })).collect::<Vec<_>>()
+    })
+}
+
+/// Renders a `<picture>` that prefers AVIF and falls back to WebP. Explicit
+/// width/height keep the box reserved before the bytes land, so the image
+/// cannot shift the layout.
+fn figure_markup(image: &PageImage, priority: bool) -> String {
+    let loading = if priority {
+        r#"fetchpriority="high""#
+    } else {
+        r#"loading="lazy""#
+    };
+    format!(
+        r#"<figure class="media-figure"><picture><source srcset="{avif}" type="image/avif"><img src="{webp}" alt="{alt}" width="{width}" height="{height}" {loading} decoding="async"></picture></figure>"#,
+        avif = image.avif(),
+        webp = image.webp(),
+        alt = escape_attr(image.alt),
+        width = image.width,
+        height = image.height,
+        loading = loading,
+    )
+}
+
+fn page_image_schema(image: &PageImage) -> Value {
+    json!({
+        "@type": "ImageObject",
+        "@id": format!("{}{}#image", canonical_origin(), image.webp()),
+        "url": format!("{}{}", canonical_origin(), image.webp()),
+        "contentUrl": format!("{}{}", canonical_origin(), image.webp()),
+        "caption": image.alt,
+        "width": image.width,
+        "height": image.height,
+        "encodingFormat": "image/webp"
     })
 }
 
@@ -1780,6 +1861,53 @@ mod tests {
                     .for_each(|item| collect_id_references(item, out));
             }
             _ => {}
+        }
+    }
+
+    #[test]
+    fn service_pages_publish_a_sized_image_backed_by_real_assets() {
+        let _guard = crate::ENV_LOCK
+            .lock()
+            .unwrap_or_else(|error| error.into_inner());
+
+        for service in SERVICES {
+            let rendered = render_page(&service_page(service));
+            assert!(
+                rendered.contains(&format!(r#"src="{}""#, service.image.webp())),
+                "{} renders no image",
+                service.slug
+            );
+            assert!(
+                rendered.contains(&format!(r#"srcset="{}""#, service.image.avif())),
+                "{} offers no avif source",
+                service.slug
+            );
+            assert!(
+                rendered.contains(&format!(r#"alt="{}""#, escape_attr(service.image.alt))),
+                "{} image has no alt text",
+                service.slug
+            );
+            assert!(
+                rendered.contains(&format!(
+                    r#"width="{}" height="{}""#,
+                    service.image.width, service.image.height
+                )),
+                "{} image has no intrinsic dimensions",
+                service.slug
+            );
+
+            for extension in ["webp", "avif"] {
+                let asset = format!(
+                    "frontend/public/assets/{}.{extension}",
+                    service.image.basename
+                );
+                let workspace = std::path::Path::new(&asset);
+                let from_backend = std::path::PathBuf::from("..").join(&asset);
+                assert!(
+                    workspace.is_file() || from_backend.is_file(),
+                    "missing asset {asset}"
+                );
+            }
         }
     }
 
