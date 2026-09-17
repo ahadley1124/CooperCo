@@ -463,15 +463,49 @@ impl<'r> Responder<'r, 'static> for MarketingResponse {
     }
 }
 
+/// The request path exactly as it arrived. Rocket's `PathBuf` segments drop a
+/// trailing empty segment, so `/contact/` and `/contact` are indistinguishable
+/// by the time a handler runs; redirecting duplicates needs the raw URI.
+pub struct RawPath(String);
+
+#[rocket::async_trait]
+impl<'r> rocket::request::FromRequest<'r> for RawPath {
+    type Error = std::convert::Infallible;
+
+    async fn from_request(request: &'r Request<'_>) -> rocket::request::Outcome<Self, Self::Error> {
+        rocket::request::Outcome::Success(RawPath(request.uri().path().as_str().to_owned()))
+    }
+}
+
 #[get("/")]
 pub async fn home_page() -> MarketingResponse {
     render_marketing_path("/").await
 }
 
 #[get("/<path..>", rank = 20)]
-pub async fn marketing_page(path: PathBuf) -> MarketingResponse {
+pub async fn marketing_page(path: PathBuf, raw: RawPath) -> MarketingResponse {
+    if let Some(target) = duplicate_url_redirect(&raw.0) {
+        return MarketingResponse::Redirect(Redirect::moved(target));
+    }
     let path = format!("/{}", path.to_string_lossy().replace('\\', "/"));
     render_marketing_path(&path).await
+}
+
+/// Collapses URLs that serve identical content onto one address: a trailing
+/// slash, and the build's `index.html`, which would otherwise answer with the
+/// client-rendered shell as a thin duplicate of `/`.
+fn duplicate_url_redirect(raw_path: &str) -> Option<String> {
+    if raw_path == "/index.html" {
+        return Some("/".to_owned());
+    }
+    if raw_path.len() > 1 && raw_path.ends_with('/') {
+        let trimmed = raw_path.trim_end_matches('/');
+        if trimmed.is_empty() {
+            return Some("/".to_owned());
+        }
+        return Some(trimmed.to_owned());
+    }
+    None
 }
 
 #[get("/robots.txt")]
@@ -1964,6 +1998,21 @@ mod tests {
         ] {
             assert!(!is_fingerprinted(plain), "{plain}");
         }
+    }
+
+    #[test]
+    fn duplicate_urls_collapse_onto_one_address() {
+        assert_eq!(
+            duplicate_url_redirect("/contact/"),
+            Some("/contact".to_owned())
+        );
+        assert_eq!(
+            duplicate_url_redirect("/services/dog-training/"),
+            Some("/services/dog-training".to_owned())
+        );
+        assert_eq!(duplicate_url_redirect("/index.html"), Some("/".to_owned()));
+        assert_eq!(duplicate_url_redirect("/contact"), None);
+        assert_eq!(duplicate_url_redirect("/"), None);
     }
 
     #[test]
