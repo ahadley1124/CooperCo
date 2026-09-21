@@ -8,12 +8,17 @@ on:
     branches:
       - main
 
+concurrency:
+  group: seo-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   route-audit:
     name: Route-level SEO audit
     # Deliberately not self-hosted: that runner also hosts the live Rocket
     # instance, and this job binds a port and asserts on HTTP responses.
     runs-on: ubuntu-latest
+    timeout-minutes: 20
 
     env:
       # Not 9001, so this can never reach a production instance by accident.
@@ -29,12 +34,19 @@ jobs:
       - name: Cache Cargo dependencies
         uses: Swatinem/rust-cache@v2
 
+      # A debug build, not a release one. This audit asserts on response bodies
+      # and headers — canonical tags, sitemap entries, redirects, robots
+      # directives — none of which optimisation changes, and it never measures
+      # timing. Rocket picks its config the same way either way: Rocket.toml
+      # declares only `[default]`, and staging behaviour keys off environment
+      # variables rather than the build profile. Skipping the optimiser is
+      # several minutes of every run for no loss of coverage.
       - name: Build backend
-        run: cargo build --release -p backend
+        run: cargo build -p backend
 
       - name: Audit routes against the built server
         run: |
-          ./target/release/backend &
+          ./target/debug/backend &
           server=$!
           trap 'kill "$server" 2>/dev/null || true' EXIT
 

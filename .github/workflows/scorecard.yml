@@ -9,8 +9,12 @@ on:
   branch_protection_rule:
   # To guarantee Maintained check is occasionally updated. See
   # https://github.com/ossf/scorecard/blob/main/docs/checks.md#maintained
+  # Weekly, matching what this was meant to be. It read '00 12 * * */1', which
+  # is every day rather than every week — a day-of-week step of 1 across the
+  # whole range matches all seven. Pushes to main still trigger the analysis,
+  # so a real change is scored when it lands rather than up to a week later.
   schedule:
-    - cron: '00 12 * * */1'
+    - cron: '00 12 * * 1'
   push:
     branches: [ "main" ]
 

@@ -5,10 +5,17 @@ on:
     branches:
       - main
 
+# Pushing again to an open pull request supersedes the previous run, so there is
+# no reason to keep building the one it replaced.
+concurrency:
+  group: frontend-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   frontend-test:
     name: Frontend test
     runs-on: ubuntu-latest
+    timeout-minutes: 20
 
     steps:
       - name: Checkout repository

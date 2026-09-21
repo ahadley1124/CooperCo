@@ -5,10 +5,20 @@ on:
     branches:
       - main
 
+# One self-hosted runner serves this repository, so without a group a burst of
+# merges queues runs behind each other. Superseded runs are not cancelled: this
+# job produces the release binaries on that box.
+concurrency:
+  group: build-cooperco
+  cancel-in-progress: false
+
 jobs:
   build:
     name: Build and test app
     runs-on: self-hosted
+    # Runs have reached 22 minutes. Without a cap a hung build holds the only
+    # self-hosted runner indefinitely.
+    timeout-minutes: 45
 
     steps:
       - name: Checkout repository
@@ -25,9 +35,10 @@ jobs:
       - name: Install Trunk
         uses: taiki-e/install-action@trunk
 
-      - name: Run cargo checks
-        run: cargo check
-
+      # `cargo check` used to run here first, for 3m46s. It was redundant:
+      # `cargo test` below compiles the same workspace for the same target and
+      # reports the same type errors, just with the test harnesses attached.
+      # Anything the check would have rejected, the test build rejects too.
       - name: Run cargo tests
         run: cargo test
 
