@@ -6,8 +6,21 @@ on:
       - main
 
 # One self-hosted runner serves this repository, so without a group a burst of
-# merges queues runs behind each other. Superseded runs are not cancelled: this
-# job produces the release binaries on that box.
+# merges has runs contending for it. `cancel-in-progress: false` protects the
+# build that is already running: it finishes instead of being killed part-way,
+# which matters because it produces the release binaries on that box.
+#
+# It does not promise a build per commit, and an earlier version of this
+# comment wrongly implied it did. The guarantee is narrower: GitHub holds at
+# most one pending run per group, so when two further merges land while a build
+# is running, the second displaces the first from the queue and that
+# intermediate commit is never built.
+#
+# Nothing here promises the newest commit is built either. The queued run can
+# itself be displaced by a later one, and a run that starts can still fail,
+# time out or be cancelled. So if you are looking for a particular commit's
+# artifacts, this is why they may be missing; per-commit builds would need a
+# different mechanism.
 concurrency:
   group: build-cooperco
   cancel-in-progress: false
