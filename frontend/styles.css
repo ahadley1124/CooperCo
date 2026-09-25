@@ -851,3 +851,34 @@ footer {
     grid-template-columns: 1fr;
   }
 }
+
+/* City links rendered by city_links_markup() in backend/src/seo.rs. */
+.city-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 10px;
+  margin: 0 0 20px;
+  padding: 0;
+  list-style: none;
+}
+
+.city-links a {
+  display: inline-block;
+  padding: 6px 12px;
+  border: 1px solid rgba(40, 92, 77, 0.35);
+  border-radius: 999px;
+  color: #285c4d;
+  font-weight: 750;
+  text-decoration: none;
+}
+
+.city-links a:hover,
+.city-links a:focus-visible {
+  background: #285c4d;
+  color: #fff;
+}
+
+.card[id],
+li[id] {
+  scroll-margin-top: 96px;
+}

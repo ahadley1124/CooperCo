@@ -1,6 +1,13 @@
 # Cooper & Co. Website
 
-Rust workspace for a Cooper & Co. pet-service website:
+Rust workspace for the website of Cooper & Co., a dog-training and pet-service
+business in Lorain County, Ohio. The site advertises primarily to Lorain
+County's cities: Elyria, Lorain, North Ridgeville, Avon Lake, Avon, Amherst,
+Oberlin, Sheffield Lake, and Vermilion.
+
+> **Making a change?** Start with [`docs/PROJECT_MAP.md`](docs/PROJECT_MAP.md),
+> which maps each kind of update to the file that owns it, and
+> [`AGENTS.md`](AGENTS.md) for project rules.
 
 - `frontend`: Yew single-page app built with Trunk.
 - `backend`: Rocket API and static-file server.
@@ -10,23 +17,27 @@ Rust workspace for a Cooper & Co. pet-service website:
 
 ```text
 .
+├── AGENTS.md             # Rules and orientation for coding agents
 ├── Cargo.toml            # Workspace manifest
 ├── backend/
 │   ├── .env.example
 │   ├── Cargo.toml
 │   └── src/
-│       ├── config.rs
-│       ├── db.rs
-│       ├── main.rs
-│       ├── models.rs
-│       └── routes.rs
-└── frontend/
-    ├── Cargo.toml
-    ├── Trunk.toml
-    ├── index.html
-    └── src/
-        ├── api.rs
-        └── main.rs
+│       ├── main.rs       # Rocket setup, /api/*, admin OAuth, inquiry storage
+│       ├── seo.rs        # Public pages, service areas, JSON-LD, sitemap, robots
+│       └── {config,db,models,routes}.rs  # unused template leftovers
+├── content/business_profile.toml  # Owner-confirmed facts (not read by code)
+├── docs/                 # Project map, service areas, SEO docs
+├── frontend/
+│   ├── Cargo.toml
+│   ├── Trunk.toml
+│   ├── index.html
+│   ├── public/           # Images, robots/sitemap fallbacks
+│   ├── styles.css
+│   └── src/
+│       ├── api.rs
+│       └── main.rs       # Yew enhancement + admin UI
+└── scripts/              # SEO audit, build hooks
 ```
 
 ## Prerequisites
@@ -294,7 +305,7 @@ The frontend build also copies static fallback files from `frontend/public/robot
 The current SEO foundation includes confirmed public pages for:
 
 - Services: dog training, puppy training, and group dog classes.
-- Service area: Lorain County, Ohio, including Elyria, Lorain, Amherst, Avon, and North Ridgeville.
+- Service area: Lorain County, Ohio — every city (Elyria, Lorain, North Ridgeville, Avon Lake, Avon, Amherst, Oberlin, Sheffield Lake, Vermilion) — see `docs/SERVICE_AREAS.md`.
 - Resources: practical dog training, puppy training, and group-class articles.
 
 Content guardrails are tracked in `content/business_profile.toml` and `docs/CONTENT_REQUIREMENTS.md`. Do not publish additional services, prices, hours, testimonials, credentials, addresses, or policy claims without verification.
