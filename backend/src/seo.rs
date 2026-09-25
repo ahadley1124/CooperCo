@@ -68,19 +68,15 @@ pub struct ServiceDefinition {
     pub related_resources: &'static [&'static str],
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum AreaKind {
-    City,
-    Village,
-}
-
-/// A Lorain County community the site advertises to. `name` is the bare place
+/// A Lorain County city the site advertises to. `name` is the bare place
 /// name; `display_name()` adds the state for headings and JSON-LD.
 #[derive(Clone, Copy, Debug)]
 pub struct ServiceArea {
     pub slug: &'static str,
     pub name: &'static str,
-    pub kind: AreaKind,
+    /// The other county a city straddles, if any. JSON-LD must not claim the
+    /// whole city lies in Lorain County when it does not.
+    pub also_in: Option<&'static str>,
     /// One factual sentence locating the community within the county. Keep it
     /// to geography: nothing about availability, pricing or travel.
     pub note: &'static str,
@@ -146,120 +142,78 @@ macro_rules! lorain_county_cities {
     };
 }
 
-/// Every `AreaKind::City` entry in `SERVICE_AREAS`, in advertising order, as
+/// Every entry in `SERVICE_AREAS`, in advertising order, as
 /// one sentence fragment. A macro rather than a `const` so the static copy
 /// below can splice it in with `concat!`. A test keeps it in step with the
 /// registry.
 pub const CITY_LIST: &str = lorain_county_cities!();
 
-/// The communities the site advertises to, cities first in the order they are
-/// promoted. Adding one here publishes it on `/service-areas`, in JSON-LD, and
+/// The cities the site advertises to, in the order they are promoted. Villages
+/// are held back until the owner confirms them; see docs/SERVICE_AREAS.md. Adding one here publishes it on `/service-areas`, in JSON-LD, and
 /// makes `/service-areas/{slug}` redirect there. See docs/SERVICE_AREAS.md.
 pub const SERVICE_AREAS: &[ServiceArea] = &[
     ServiceArea {
         slug: "elyria-oh",
         name: "Elyria",
-        kind: AreaKind::City,
+        also_in: None,
         note: "The Lorain County seat, in the center of the county.",
     },
     ServiceArea {
         slug: "lorain-oh",
         name: "Lorain",
-        kind: AreaKind::City,
+        also_in: None,
         note: "The county's largest city, on Lake Erie at the mouth of the Black River.",
     },
     ServiceArea {
         slug: "north-ridgeville-oh",
         name: "North Ridgeville",
-        kind: AreaKind::City,
+        also_in: None,
         note: "Eastern Lorain County, along the Cuyahoga County line.",
     },
     ServiceArea {
         slug: "avon-lake-oh",
         name: "Avon Lake",
-        kind: AreaKind::City,
+        also_in: None,
         note: "A Lake Erie shoreline city in northeastern Lorain County.",
     },
     ServiceArea {
         slug: "avon-oh",
         name: "Avon",
-        kind: AreaKind::City,
+        also_in: None,
         note: "Northeastern Lorain County, just south of Avon Lake.",
     },
     ServiceArea {
         slug: "amherst-oh",
         name: "Amherst",
-        kind: AreaKind::City,
+        also_in: None,
         note: "West of Elyria and south of Lorain.",
     },
     ServiceArea {
         slug: "oberlin-oh",
         name: "Oberlin",
-        kind: AreaKind::City,
+        also_in: None,
         note: "Southwest of Elyria, home of Oberlin College.",
     },
     ServiceArea {
         slug: "sheffield-lake-oh",
         name: "Sheffield Lake",
-        kind: AreaKind::City,
+        also_in: None,
         note: "A Lake Erie shoreline city between Lorain and Avon Lake.",
     },
     ServiceArea {
         slug: "vermilion-oh",
         name: "Vermilion",
-        kind: AreaKind::City,
+        also_in: Some("Erie County"),
         note: "A lakeshore city on the western edge of the county, west of Lorain.",
-    },
-    ServiceArea {
-        slug: "wellington-oh",
-        name: "Wellington",
-        kind: AreaKind::Village,
-        note: "Southern Lorain County.",
-    },
-    ServiceArea {
-        slug: "grafton-oh",
-        name: "Grafton",
-        kind: AreaKind::Village,
-        note: "South of Elyria.",
-    },
-    ServiceArea {
-        slug: "lagrange-oh",
-        name: "LaGrange",
-        kind: AreaKind::Village,
-        note: "South-central Lorain County.",
-    },
-    ServiceArea {
-        slug: "sheffield-oh",
-        name: "Sheffield",
-        kind: AreaKind::Village,
-        note: "Between Lorain, Elyria and Sheffield Lake.",
-    },
-    ServiceArea {
-        slug: "south-amherst-oh",
-        name: "South Amherst",
-        kind: AreaKind::Village,
-        note: "South of Amherst.",
-    },
-    ServiceArea {
-        slug: "kipton-oh",
-        name: "Kipton",
-        kind: AreaKind::Village,
-        note: "West of Oberlin.",
-    },
-    ServiceArea {
-        slug: "rochester-oh",
-        name: "Rochester",
-        kind: AreaKind::Village,
-        note: "Southwestern Lorain County.",
     },
 ];
 
 /// The one answer to "where does Cooper & Co. serve?", shared by the homepage
 /// summary and `/faq`.
 const WHERE_WE_SERVE: &str = concat!(
-    "Cooper & Co. serves Lorain County, Ohio: ",
+    "Cooper & Co. serves Lorain County, Ohio, including ",
     lorain_county_cities!(),
-    ", plus the county's villages, including Wellington, Grafton, LaGrange, and Sheffield."
+    ". Include your city or ZIP code when you get in touch."
 );
 
 /// Each service answers its own questions. Three services previously shared one
@@ -1019,7 +973,7 @@ fn home() -> Page {
 </section>
 <section class="section" aria-labelledby="home-services"><div class="section-heading"><p class="eyebrow">Services</p><h2 id="home-services">Dog training and class inquiries</h2><p>Use the current service pages to share dog details, training goals, location, and preferred timing.</p></div><div class="service-grid">{services}</div></section>
 <section class="section split" aria-labelledby="classes-overview"><div><p class="eyebrow">Classes</p><h2 id="classes-overview">Group and puppy training inquiries</h2><p>Use the contact options on this site for current class details and availability.</p></div><article class="update"><span>Current next step</span><h3>Share your goals before booking</h3><p>Use the inquiry form to describe your dog, location, goals, and preferred timeframe.</p><a href="/contact">Contact Cooper &amp; Co.</a></article></section>
-<section class="section" aria-labelledby="area-overview"><div class="section-heading"><p class="eyebrow">Service Area</p><h2 id="area-overview">Serving every Lorain County city</h2><p>Cooper &amp; Co. is a Lorain County business working with dog owners in {city_list}, and in the county's villages. Include your city or ZIP code when you get in touch.</p></div>{city_links}<p><a class="button secondary on-light" href="/service-areas">See the full Lorain County service area</a></p></section>
+<section class="section" aria-labelledby="area-overview"><div class="section-heading"><p class="eyebrow">Service Area</p><h2 id="area-overview">Serving every Lorain County city</h2><p>Cooper &amp; Co. is a Lorain County business working with dog owners in {city_list}. Include your city or ZIP code when you get in touch.</p></div>{city_links}<p><a class="button secondary on-light" href="/service-areas">See the full Lorain County service area</a></p></section>
 <section class="section" aria-labelledby="process"><div class="section-heading"><p class="eyebrow">Process</p><h2 id="process">How inquiries work</h2></div><div class="service-grid"><article class="card"><h3>1. Send details</h3><p>Provide your contact details, city or ZIP code, pet age, service interest, and goals.</p></article><article class="card"><h3>2. Confirm fit</h3><p>Cooper &amp; Co. can confirm availability, class fit, and any requirements directly.</p></article><article class="card"><h3>3. Plan next steps</h3><p>You receive the appropriate scheduling or follow-up path from the business.</p></article></div></section>
 <section class="section trust-section" aria-labelledby="contact-options"><div class="section-heading"><p class="eyebrow">Contact</p><h2 id="contact-options">Use the listed contact options</h2><p>The website publishes Cooper &amp; Co.'s business name, Lorain County service area, phone number, email, Facebook page, and Yelp listing.</p></div></section>
 <section class="section faq" aria-labelledby="home-faq"><div class="section-heading"><p class="eyebrow">FAQ</p><h2 id="home-faq">Common questions</h2></div>{faq}</section>
@@ -1153,7 +1107,6 @@ fn service_h1(service: &ServiceDefinition) -> String {
 fn service_areas_index() -> Page {
     let cities = SERVICE_AREAS
         .iter()
-        .filter(|area| area.kind == AreaKind::City)
         .map(|area| {
             format!(
                 r#"<article class="card" id="{slug}"><h3>{display}</h3><p>{note}</p><p>Dog training, puppy training, and group dog classes for {name} dog owners. <a href="/contact">Ask about {name}</a></p></article>"#,
@@ -1164,23 +1117,10 @@ fn service_areas_index() -> Page {
             )
         })
         .collect::<String>();
-    let villages = SERVICE_AREAS
-        .iter()
-        .filter(|area| area.kind == AreaKind::Village)
-        .map(|area| {
-            format!(
-                r#"<li id="{slug}"><strong>{display}</strong>: {note}</li>"#,
-                slug = area.slug,
-                display = escape(&area.display_name()),
-                note = escape(area.note),
-            )
-        })
-        .collect::<String>();
     let body = format!(
-        r#"<section class="section page-hero" aria-labelledby="areas-title"><p class="eyebrow">Service Areas</p><h1 id="areas-title">Dog training across Lorain County, Ohio</h1><p class="answer">Cooper &amp; Co. is a Lorain County business offering dog training, puppy training, and group dog classes to dog owners in {city_list}, and in the county's villages.</p></section><section class="section" aria-labelledby="areas-cities"><div class="section-heading"><h2 id="areas-cities">Lorain County cities</h2><p>Include your city or ZIP code when sending an inquiry.</p></div><div class="service-grid">{cities}</div></section><section class="section" aria-labelledby="areas-villages"><div class="section-heading"><h2 id="areas-villages">Lorain County villages</h2><p>Live between the cities? Ask about your location directly.</p></div><ul>{villages}</ul></section>{contact}"#,
+        r#"<section class="section page-hero" aria-labelledby="areas-title"><p class="eyebrow">Service Areas</p><h1 id="areas-title">Dog training across Lorain County, Ohio</h1><p class="answer">Cooper &amp; Co. is a Lorain County business offering dog training, puppy training, and group dog classes to dog owners in {city_list}.</p></section><section class="section" aria-labelledby="areas-cities"><div class="section-heading"><h2 id="areas-cities">Lorain County cities</h2><p>Include your city or ZIP code when sending an inquiry.</p></div><div class="service-grid">{cities}</div></section><section class="section" aria-labelledby="areas-elsewhere"><div class="section-heading"><h2 id="areas-elsewhere">Elsewhere in Lorain County</h2><p>Live outside these cities? Ask about your location directly and include your ZIP code.</p></div></section>{contact}"#,
         city_list = CITY_LIST,
         cities = cities,
-        villages = villages,
         contact = contact_section("Confirm service availability in your city")
     );
     Page {
@@ -1644,7 +1584,6 @@ fn resource_card(article: &ResourceArticle) -> String {
 fn city_links_markup() -> String {
     let links = SERVICE_AREAS
         .iter()
-        .filter(|area| area.kind == AreaKind::City)
         .map(|area| {
             format!(
                 r#"<li><a href="/service-areas#{slug}">{display}</a></li>"#,
@@ -1833,10 +1772,15 @@ fn service_area_schema() -> Vec<Value> {
         "name": format!("{}, {}", BUSINESS.county, BUSINESS.state)
     })];
     areas.extend(SERVICE_AREAS.iter().map(|area| {
+        let lorain = format!("{}, {}", BUSINESS.county, BUSINESS.state);
+        let contained_in = match area.also_in {
+            Some(other) => json!([lorain, format!("{other}, {}", BUSINESS.state)]),
+            None => json!(lorain),
+        };
         json!({
             "@type": "City",
             "name": area.display_name(),
-            "containedInPlace": format!("{}, {}", BUSINESS.county, BUSINESS.state)
+            "containedInPlace": contained_in
         })
     }));
     areas
@@ -2503,7 +2447,6 @@ mod tests {
     fn city_list_names_every_registered_city_in_order() {
         let cities = SERVICE_AREAS
             .iter()
-            .filter(|area| area.kind == AreaKind::City)
             .map(|area| area.name)
             .collect::<Vec<_>>();
         let (head, last) = cities.split_at(cities.len() - 1);
@@ -2535,7 +2478,16 @@ mod tests {
                 Some("/service-areas")
             );
         }
-        for area in SERVICE_AREAS.iter().filter(|a| a.kind == AreaKind::City) {
+        let vermilion = service_area_schema()
+            .into_iter()
+            .find(|node| node["name"] == "Vermilion, OH")
+            .expect("Vermilion in areaServed");
+        assert_eq!(
+            vermilion["containedInPlace"],
+            json!(["Lorain County, Ohio", "Erie County, Ohio"]),
+            "Vermilion straddles two counties"
+        );
+        for area in SERVICE_AREAS {
             assert!(
                 home.contains(&format!("/service-areas#{}", area.slug)),
                 "homepage does not link {}",

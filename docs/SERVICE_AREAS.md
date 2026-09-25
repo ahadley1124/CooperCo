@@ -1,7 +1,7 @@
 # Service Areas: Lorain County
 
 Cooper & Co. is a Lorain County, Ohio company. The site advertises **primarily
-to the cities of Lorain County**, then to the county's villages. Copy, titles,
+to the cities of Lorain County**. Copy, titles,
 descriptions and structured data should name these places rather than
 Cleveland-area or out-of-county locations.
 
@@ -22,8 +22,19 @@ first):
 | Sheffield Lake | `sheffield-lake-oh` | `/service-areas#sheffield-lake-oh` |
 | Vermilion (partly in Erie County) | `vermilion-oh` | `/service-areas#vermilion-oh` |
 
-Villages: Wellington, Grafton, LaGrange, Sheffield, South Amherst, Kipton,
-Rochester (slugs follow the same `name-oh` pattern).
+### Villages (not published)
+
+Wellington, Grafton, LaGrange, Sheffield, South Amherst, Kipton and Rochester
+are candidates only. They stay out of `SERVICE_AREAS`, copy and JSON-LD until
+the owner confirms the business serves them (`service_area_town_coverage` in
+`content/business_profile.toml`). Add each one as a normal entry when it is
+confirmed.
+
+### Vermilion
+
+Vermilion straddles the Lorain/Erie county line, so its entry sets
+`also_in: Some("Erie County")` and its JSON-LD `containedInPlace` lists both
+counties. A test pins this.
 
 ## Where the geography appears
 
@@ -32,11 +43,11 @@ Rochester (slugs follow the same `name-oh` pattern).
 - **Service pages** — "{Service} across Lorain County" section with the same
   city links; the opening answer names every city.
 - **`/service-areas`** — one card per city (with an `id` anchor and a factual
-  location note) and a list of villages.
+  location note), and an "Elsewhere in Lorain County" prompt.
 - **About, FAQ, `/api/site` intro** — name the cities via `CITY_LIST` /
   `WHERE_WE_SERVE`.
 - **JSON-LD** — `LocalBusiness.areaServed` and each `Service.areaServed` list
-  Lorain County plus every city and village as `City` nodes.
+  Lorain County plus every city as `City` nodes.
 - **Meta descriptions** — each page names a different subset of cities, since
   descriptions must be unique and 120–158 characters.
 
@@ -49,10 +60,10 @@ its own anchored card. Add a dedicated city page only when it has genuinely
 unique, owner-verified content for that city (a class location, local
 testimonials, etc.), and add it to `indexable_paths()` and `page_for_path()`.
 
-## Adding or removing a community
+## Adding or removing a city
 
-1. `backend/src/seo.rs`: edit `SERVICE_AREAS` (slug, name, `AreaKind`, one
-   factual geography note). For a city, also edit `lorain_county_cities!()` —
+1. `backend/src/seo.rs`: edit `SERVICE_AREAS` (slug, name, `also_in` county if it straddles a line, one
+   factual geography note), and `lorain_county_cities!()` —
    a test fails if the two disagree.
 2. Adjust any meta description that names the city, keeping 120–158 characters.
 3. `frontend/src/main.rs`: `LORAIN_COUNTY_CITIES`.

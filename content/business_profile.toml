@@ -27,7 +27,7 @@ name = "Group dog classes"
 status = "confirmed_by_repository_evidence"
 
 # Owner direction (2026-09): Cooper & Co. is a Lorain County company and
-# advertises primarily to the cities and villages of Lorain County. The live
+# advertises primarily to the cities of Lorain County. The live
 # list is SERVICE_AREAS in backend/src/seo.rs; keep this file in step with it.
 [[service_areas]]
 slug = "elyria-oh"
@@ -87,48 +87,48 @@ status = "Served"
 slug = "wellington-oh"
 name = "Wellington, OH"
 kind = "village"
-status = "Served"
+status = "pending_owner_confirmation" # not published
 
 [[service_areas]]
 slug = "grafton-oh"
 name = "Grafton, OH"
 kind = "village"
-status = "Served"
+status = "pending_owner_confirmation" # not published
 
 [[service_areas]]
 slug = "lagrange-oh"
 name = "LaGrange, OH"
 kind = "village"
-status = "Served"
+status = "pending_owner_confirmation" # not published
 
 [[service_areas]]
 slug = "sheffield-oh"
 name = "Sheffield, OH"
 kind = "village"
-status = "Served"
+status = "pending_owner_confirmation" # not published
 
 [[service_areas]]
 slug = "south-amherst-oh"
 name = "South Amherst, OH"
 kind = "village"
-status = "Served"
+status = "pending_owner_confirmation" # not published
 
 [[service_areas]]
 slug = "kipton-oh"
 name = "Kipton, OH"
 kind = "village"
-status = "Served"
+status = "pending_owner_confirmation" # not published
 
 [[service_areas]]
 slug = "rochester-oh"
 name = "Rochester, OH"
 kind = "village"
-status = "Served"
+status = "pending_owner_confirmation" # not published
 
 [owner_confirmation_required]
 exact_confirmed_services = true
-exact_service_area_cities = false # owner confirmed Lorain County cities and villages
-service_area_town_coverage = true # confirm any specific village or township limits
+exact_service_area_cities = false # owner confirmed Lorain County cities
+service_area_town_coverage = true # confirm which villages/townships are served before publishing them
 service_radius = true
 public_address_policy = true
 hours = true

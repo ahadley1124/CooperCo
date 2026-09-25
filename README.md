@@ -305,7 +305,7 @@ The frontend build also copies static fallback files from `frontend/public/robot
 The current SEO foundation includes confirmed public pages for:
 
 - Services: dog training, puppy training, and group dog classes.
-- Service area: Lorain County, Ohio — every city (Elyria, Lorain, North Ridgeville, Avon Lake, Avon, Amherst, Oberlin, Sheffield Lake, Vermilion) plus its villages. See `docs/SERVICE_AREAS.md`.
+- Service area: Lorain County, Ohio — every city (Elyria, Lorain, North Ridgeville, Avon Lake, Avon, Amherst, Oberlin, Sheffield Lake, Vermilion) — see `docs/SERVICE_AREAS.md`.
 - Resources: practical dog training, puppy training, and group-class articles.
 
 Content guardrails are tracked in `content/business_profile.toml` and `docs/CONTENT_REQUIREMENTS.md`. Do not publish additional services, prices, hours, testimonials, credentials, addresses, or policy claims without verification.

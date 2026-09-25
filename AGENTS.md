@@ -20,9 +20,10 @@ County, Ohio** (phone (440) 276-1716, no public street address). Published
 services: dog training, puppy training, group dog classes.
 
 **Advertise primarily to Lorain County cities**: Elyria, Lorain, North
-Ridgeville, Avon Lake, Avon, Amherst, Oberlin, Sheffield Lake, and Vermilion,
-then the county's villages (Wellington, Grafton, LaGrange, Sheffield, South
-Amherst, Kipton, Rochester). Don't target Cleveland/Cuyahoga County or the
+Ridgeville, Avon Lake, Avon, Amherst, Oberlin, Sheffield Lake, and Vermilion.
+The county's villages are **not** published until the owner confirms them
+(see docs/SERVICE_AREAS.md). Vermilion straddles Erie County, so its JSON-LD
+lists both counties. Don't target Cleveland/Cuyahoga County or the
 retired Mansfield-area towns.
 
 ## Architecture in one paragraph

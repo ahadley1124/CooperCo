@@ -4,7 +4,7 @@ Read this before changing anything. It says where each concern lives, so an
 update starts in the right file instead of a repository-wide search.
 
 Cooper & Co. is a dog-training and pet-service business in **Lorain County,
-Ohio**. The site advertises primarily to Lorain County's cities and villages;
+Ohio**. The site advertises primarily to Lorain County's cities;
 see [SERVICE_AREAS.md](SERVICE_AREAS.md).
 
 ## How a request is served
@@ -26,7 +26,7 @@ plus the admin UI; search engines never need it.
 
 | To change... | Edit | Also update |
 |---|---|---|
-| Cities / villages the site advertises to | `SERVICE_AREAS` and `lorain_county_cities!()` in `backend/src/seo.rs` | `LORAIN_COUNTY_CITIES` in `frontend/src/main.rs`, `areaServed` in `frontend/index.html`, `content/business_profile.toml`, [SERVICE_AREAS.md](SERVICE_AREAS.md) |
+| Cities the site advertises to | `SERVICE_AREAS` and `lorain_county_cities!()` in `backend/src/seo.rs` | `LORAIN_COUNTY_CITIES` in `frontend/src/main.rs`, `areaServed` in `frontend/index.html`, `content/business_profile.toml`, [SERVICE_AREAS.md](SERVICE_AREAS.md) |
 | "Where do you serve?" answer | `WHERE_WE_SERVE` in `backend/src/seo.rs` | FAQ text in `frontend/src/main.rs` and `frontend/index.html` |
 | Business name, phone, email, social links | `BUSINESS` in `backend/src/seo.rs` | `seed_content()` in `backend/src/main.rs`, `frontend/index.html`, footer/header in `frontend/src/main.rs`, `content/business_profile.toml` |
 | A service page (copy, FAQ, image) | `SERVICES` and the `*_FAQ` consts in `backend/src/seo.rs` | `seed_content()` in `backend/src/main.rs`; Yew service pages in `frontend/src/main.rs` |
@@ -70,7 +70,8 @@ editing copy in `seo.rs`:
 - Exactly one `<h1>` per page, no skipped heading levels.
 - Service and article `answer` passages are 35–70 words and end with a period.
 - A given FAQ question appears in `FAQPage` markup on one URL only.
-- `CITY_LIST` names every `AreaKind::City` entry, in order.
+- `CITY_LIST` names every `SERVICE_AREAS` entry, in order.
+- Vermilion's `containedInPlace` lists both Lorain and Erie counties.
 - Every service area has an anchor on `/service-areas`, appears in `areaServed`,
   and `/service-areas/{slug}` 301s to `/service-areas`.
 - `frontend/public/robots.txt` and `sitemap.xml` match the generated output.

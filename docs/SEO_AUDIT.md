@@ -133,11 +133,13 @@ Owner direction: Cooper & Co. is a Lorain County company and should advertise
 primarily to the county's cities.
 
 - `SERVICE_AREAS` grew from five cities to all nine Lorain County cities
-  (adding Avon Lake, Oberlin, Sheffield Lake and Vermilion) plus seven villages.
-- `/service-areas` now has an anchored card per city and a village list; the
+  (adding Avon Lake, Oberlin, Sheffield Lake and Vermilion). Villages are
+  held back until the owner confirms them.
+- `/service-areas` now has an anchored card per city; the
   homepage and every service page link to those anchors.
 - Service answers, the About page, FAQ and `/api/site` intro draw the city list
   from `lorain_county_cities!()` / `CITY_LIST` / `WHERE_WE_SERVE`, so it lives
   in one place. Tests keep it in step with the registry.
-- `areaServed` JSON-LD lists every city and village.
+- `areaServed` JSON-LD lists every city; Vermilion is contained in both
+  Lorain and Erie counties.
 - No per-city URLs were added; the consolidation decision above still holds.
