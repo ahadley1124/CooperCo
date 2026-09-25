@@ -3,7 +3,7 @@
 Owner confirmation is still required for:
 
 - Exact confirmed services.
-- Exact service-area cities.
+- Any limits within the county (villages, townships or cities not actually served). The owner has confirmed the business targets Lorain County cities; see `docs/SERVICE_AREAS.md`.
 - Service radius, if applicable.
 - Public address policy.
 - Hours.

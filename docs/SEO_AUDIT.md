@@ -124,3 +124,20 @@ No crawl blocker, stray `noindex`, or client-rendering dependency was found.
   `/service-areas` lists its cities as plain text.
 - Only one size exists per image, so no responsive `srcset` width set can be
   offered until additional sizes are produced.
+
+## Lorain County Targeting Update
+
+Date: 2026-09-25
+
+Owner direction: Cooper & Co. is a Lorain County company and should advertise
+primarily to the county's cities.
+
+- `SERVICE_AREAS` grew from five cities to all nine Lorain County cities
+  (adding Avon Lake, Oberlin, Sheffield Lake and Vermilion) plus seven villages.
+- `/service-areas` now has an anchored card per city and a village list; the
+  homepage and every service page link to those anchors.
+- Service answers, the About page, FAQ and `/api/site` intro draw the city list
+  from `lorain_county_cities!()` / `CITY_LIST` / `WHERE_WE_SERVE`, so it lives
+  in one place. Tests keep it in step with the registry.
+- `areaServed` JSON-LD lists every city and village.
+- No per-city URLs were added; the consolidation decision above still holds.

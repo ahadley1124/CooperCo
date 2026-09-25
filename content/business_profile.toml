@@ -26,34 +26,109 @@ slug = "group-dog-classes"
 name = "Group dog classes"
 status = "confirmed_by_repository_evidence"
 
+# Owner direction (2026-09): Cooper & Co. is a Lorain County company and
+# advertises primarily to the cities and villages of Lorain County. The live
+# list is SERVICE_AREAS in backend/src/seo.rs; keep this file in step with it.
 [[service_areas]]
 slug = "elyria-oh"
 name = "Elyria, OH"
+kind = "city"
 status = "Served"
 
 [[service_areas]]
 slug = "lorain-oh"
 name = "Lorain, OH"
-status = "Served"
-
-[[service_areas]]
-slug = "amherst-oh"
-name = "Amherst, OH"
-status = "Served"
-
-[[service_areas]]
-slug = "avon-oh"
-name = "Avon, OH"
+kind = "city"
 status = "Served"
 
 [[service_areas]]
 slug = "north-ridgeville-oh"
 name = "North Ridgeville, OH"
+kind = "city"
+status = "Served"
+
+[[service_areas]]
+slug = "avon-lake-oh"
+name = "Avon Lake, OH"
+kind = "city"
+status = "Served"
+
+[[service_areas]]
+slug = "avon-oh"
+name = "Avon, OH"
+kind = "city"
+status = "Served"
+
+[[service_areas]]
+slug = "amherst-oh"
+name = "Amherst, OH"
+kind = "city"
+status = "Served"
+
+[[service_areas]]
+slug = "oberlin-oh"
+name = "Oberlin, OH"
+kind = "city"
+status = "Served"
+
+[[service_areas]]
+slug = "sheffield-lake-oh"
+name = "Sheffield Lake, OH"
+kind = "city"
+status = "Served"
+
+[[service_areas]]
+slug = "vermilion-oh"
+name = "Vermilion, OH"
+kind = "city"
+status = "Served"
+
+[[service_areas]]
+slug = "wellington-oh"
+name = "Wellington, OH"
+kind = "village"
+status = "Served"
+
+[[service_areas]]
+slug = "grafton-oh"
+name = "Grafton, OH"
+kind = "village"
+status = "Served"
+
+[[service_areas]]
+slug = "lagrange-oh"
+name = "LaGrange, OH"
+kind = "village"
+status = "Served"
+
+[[service_areas]]
+slug = "sheffield-oh"
+name = "Sheffield, OH"
+kind = "village"
+status = "Served"
+
+[[service_areas]]
+slug = "south-amherst-oh"
+name = "South Amherst, OH"
+kind = "village"
+status = "Served"
+
+[[service_areas]]
+slug = "kipton-oh"
+name = "Kipton, OH"
+kind = "village"
+status = "Served"
+
+[[service_areas]]
+slug = "rochester-oh"
+name = "Rochester, OH"
+kind = "village"
 status = "Served"
 
 [owner_confirmation_required]
 exact_confirmed_services = true
-exact_service_area_cities = true
+exact_service_area_cities = false # owner confirmed Lorain County cities and villages
+service_area_town_coverage = true # confirm any specific village or township limits
 service_radius = true
 public_address_policy = true
 hours = true

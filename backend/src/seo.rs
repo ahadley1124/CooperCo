@@ -12,7 +12,7 @@ use serde_json::{json, Value};
 const PRODUCTION_ORIGIN: &str = "https://cooper-and-co.com";
 /// Fallback change date for pages that carry no date of their own. Update it
 /// when the marketing copy or layout of those pages changes.
-const SITE_LASTMOD: &str = "2026-09-17";
+const SITE_LASTMOD: &str = "2026-09-25";
 const SOCIAL_IMAGE: &str = "/assets/cooperco-pet-services-hero.webp";
 const SOCIAL_IMAGE_ALT: &str =
     "Black and tan dog on a leash in a park with dog-training cones in the background";
@@ -23,7 +23,6 @@ pub struct BusinessProfile {
     pub phone: &'static str,
     pub phone_e164: &'static str,
     pub email: &'static str,
-    pub home_city: &'static str,
     pub state: &'static str,
     pub county: &'static str,
     pub facebook_url: &'static str,
@@ -69,10 +68,28 @@ pub struct ServiceDefinition {
     pub related_resources: &'static [&'static str],
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum AreaKind {
+    City,
+    Village,
+}
+
+/// A Lorain County community the site advertises to. `name` is the bare place
+/// name; `display_name()` adds the state for headings and JSON-LD.
 #[derive(Clone, Copy, Debug)]
 pub struct ServiceArea {
     pub slug: &'static str,
     pub name: &'static str,
+    pub kind: AreaKind,
+    /// One factual sentence locating the community within the county. Keep it
+    /// to geography: nothing about availability, pricing or travel.
+    pub note: &'static str,
+}
+
+impl ServiceArea {
+    pub fn display_name(&self) -> String {
+        format!("{}, OH", self.name)
+    }
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -117,35 +134,133 @@ pub const BUSINESS: BusinessProfile = BusinessProfile {
     phone: "(440) 276-1716",
     phone_e164: "+14402761716",
     email: "cooper.copetservices@gmail.com",
-    home_city: "Lorain",
     state: "Ohio",
     county: "Lorain County",
     facebook_url: "https://www.facebook.com/CooperAndCoPet",
     yelp_url: "https://www.yelp.com/biz/cooper-and-company-elyria",
 };
 
+macro_rules! lorain_county_cities {
+    () => {
+        "Elyria, Lorain, North Ridgeville, Avon Lake, Avon, Amherst, Oberlin, Sheffield Lake, and Vermilion"
+    };
+}
+
+/// Every `AreaKind::City` entry in `SERVICE_AREAS`, in advertising order, as
+/// one sentence fragment. A macro rather than a `const` so the static copy
+/// below can splice it in with `concat!`. A test keeps it in step with the
+/// registry.
+pub const CITY_LIST: &str = lorain_county_cities!();
+
+/// The communities the site advertises to, cities first in the order they are
+/// promoted. Adding one here publishes it on `/service-areas`, in JSON-LD, and
+/// makes `/service-areas/{slug}` redirect there. See docs/SERVICE_AREAS.md.
 pub const SERVICE_AREAS: &[ServiceArea] = &[
     ServiceArea {
         slug: "elyria-oh",
-        name: "Elyria, OH",
+        name: "Elyria",
+        kind: AreaKind::City,
+        note: "The Lorain County seat, in the center of the county.",
     },
     ServiceArea {
         slug: "lorain-oh",
-        name: "Lorain, OH",
-    },
-    ServiceArea {
-        slug: "amherst-oh",
-        name: "Amherst, OH",
-    },
-    ServiceArea {
-        slug: "avon-oh",
-        name: "Avon, OH",
+        name: "Lorain",
+        kind: AreaKind::City,
+        note: "The county's largest city, on Lake Erie at the mouth of the Black River.",
     },
     ServiceArea {
         slug: "north-ridgeville-oh",
-        name: "North Ridgeville, OH",
+        name: "North Ridgeville",
+        kind: AreaKind::City,
+        note: "Eastern Lorain County, along the Cuyahoga County line.",
+    },
+    ServiceArea {
+        slug: "avon-lake-oh",
+        name: "Avon Lake",
+        kind: AreaKind::City,
+        note: "A Lake Erie shoreline city in northeastern Lorain County.",
+    },
+    ServiceArea {
+        slug: "avon-oh",
+        name: "Avon",
+        kind: AreaKind::City,
+        note: "Northeastern Lorain County, just south of Avon Lake.",
+    },
+    ServiceArea {
+        slug: "amherst-oh",
+        name: "Amherst",
+        kind: AreaKind::City,
+        note: "West of Elyria and south of Lorain.",
+    },
+    ServiceArea {
+        slug: "oberlin-oh",
+        name: "Oberlin",
+        kind: AreaKind::City,
+        note: "Southwest of Elyria, home of Oberlin College.",
+    },
+    ServiceArea {
+        slug: "sheffield-lake-oh",
+        name: "Sheffield Lake",
+        kind: AreaKind::City,
+        note: "A Lake Erie shoreline city between Lorain and Avon Lake.",
+    },
+    ServiceArea {
+        slug: "vermilion-oh",
+        name: "Vermilion",
+        kind: AreaKind::City,
+        note: "A lakeshore city on the western edge of the county, west of Lorain.",
+    },
+    ServiceArea {
+        slug: "wellington-oh",
+        name: "Wellington",
+        kind: AreaKind::Village,
+        note: "Southern Lorain County.",
+    },
+    ServiceArea {
+        slug: "grafton-oh",
+        name: "Grafton",
+        kind: AreaKind::Village,
+        note: "South of Elyria.",
+    },
+    ServiceArea {
+        slug: "lagrange-oh",
+        name: "LaGrange",
+        kind: AreaKind::Village,
+        note: "South-central Lorain County.",
+    },
+    ServiceArea {
+        slug: "sheffield-oh",
+        name: "Sheffield",
+        kind: AreaKind::Village,
+        note: "Between Lorain, Elyria and Sheffield Lake.",
+    },
+    ServiceArea {
+        slug: "south-amherst-oh",
+        name: "South Amherst",
+        kind: AreaKind::Village,
+        note: "South of Amherst.",
+    },
+    ServiceArea {
+        slug: "kipton-oh",
+        name: "Kipton",
+        kind: AreaKind::Village,
+        note: "West of Oberlin.",
+    },
+    ServiceArea {
+        slug: "rochester-oh",
+        name: "Rochester",
+        kind: AreaKind::Village,
+        note: "Southwestern Lorain County.",
     },
 ];
+
+/// The one answer to "where does Cooper & Co. serve?", shared by the homepage
+/// summary and `/faq`.
+const WHERE_WE_SERVE: &str = concat!(
+    "Cooper & Co. serves Lorain County, Ohio: ",
+    lorain_county_cities!(),
+    ", plus the county's villages, including Wellington, Grafton, LaGrange, and Sheffield."
+);
 
 /// Each service answers its own questions. Three services previously shared one
 /// FaqItem list, which published a byte-identical FAQPage entity on three URLs.
@@ -199,9 +314,13 @@ pub const SERVICES: &[ServiceDefinition] = &[
         slug: "dog-training",
         name: "Dog training",
         page_title: "Dog Training in Lorain County, Ohio | Cooper & Co.",
-        description: "Ask Cooper & Co. about dog training in Lorain County, Ohio, covering leash manners, focus, and everyday skills. Serving Elyria, Lorain, Amherst and Avon.",
+        description: "Dog training in Elyria, Lorain, North Ridgeville, Avon Lake and across Lorain County, Ohio: leash manners, focus, and everyday skills from Cooper & Co.",
         summary: "Dog training inquiries can cover leash manners, focus, everyday skills, and current training goals.",
-        answer: "Cooper & Co. offers dog training in Lorain County, Ohio, serving Elyria, Lorain, Amherst, Avon, and North Ridgeville. Inquiries cover leash manners, focus, and everyday household skills. Send your dog's age, current training experience, and goals, and Cooper & Co. responds with fit, timing, and the next step.",
+        answer: concat!(
+            "Cooper & Co. offers dog training in Lorain County, Ohio, serving ",
+            lorain_county_cities!(),
+            ". Inquiries cover leash manners, focus, and everyday household skills. Send your dog's age, current training experience, and goals, and Cooper & Co. responds with fit, timing, and the next step."
+        ),
         audience: "Appropriate for dog owners who want clearer expectations, practical skills, and help choosing a class or training path.",
         image: PageImage {
             basename: "cooperco-pet-services-hero",
@@ -230,9 +349,13 @@ pub const SERVICES: &[ServiceDefinition] = &[
         slug: "puppy-training",
         name: "Puppy training",
         page_title: "Puppy Training in Lorain County | Cooper & Co.",
-        description: "Ask Cooper & Co. about puppy training in Lorain County, Ohio, covering early manners, routines, and class readiness. Serving Elyria, Lorain and Amherst.",
+        description: "Puppy training for Lorain, Elyria, Avon, Amherst and Oberlin owners across Lorain County, Ohio: early manners, routines, and class readiness.",
         summary: "Puppy training inquiries focus on early manners, confidence, routines, and class readiness.",
-        answer: "Cooper & Co. offers puppy training in Lorain County, Ohio, serving Elyria, Lorain, Amherst, Avon, and North Ridgeville. Inquiries focus on early manners, confidence, daily routines, and readiness for a class. Share your puppy's age, schedule, and handling notes, and Cooper & Co. confirms whether the current format fits.",
+        answer: concat!(
+            "Cooper & Co. offers puppy training in Lorain County, Ohio, serving ",
+            lorain_county_cities!(),
+            ". Inquiries focus on early manners, confidence, daily routines, and readiness for a class. Share your puppy's age, schedule, and handling notes, and Cooper & Co. confirms whether the current format fits."
+        ),
         audience: "Appropriate for puppy owners who want early guidance without overwhelming a young dog.",
         image: PageImage {
             basename: "puppy-training-lorain-county",
@@ -261,9 +384,13 @@ pub const SERVICES: &[ServiceDefinition] = &[
         slug: "group-dog-classes",
         name: "Group dog classes",
         page_title: "Group Dog Classes in Lorain County | Cooper & Co.",
-        description: "Ask Cooper & Co. about group dog classes in Lorain County, Ohio, including class fit, what to prepare, and current availability. Send your dog's details.",
+        description: "Group dog classes for Lorain County, Ohio dogs from Elyria, Lorain, Sheffield Lake, Vermilion and nearby: class fit, what to prepare, and openings.",
         summary: "Group dog class inquiries help determine class fit, readiness, goals, and current openings.",
-        answer: "Cooper & Co. runs group dog classes in Lorain County, Ohio, serving Elyria, Lorain, Amherst, Avon, and North Ridgeville. Classes give dogs structured practice around other dogs and people. Describe your dog's age, temperament, and goals, and Cooper & Co. confirms whether the current group format is appropriate.",
+        answer: concat!(
+            "Cooper & Co. runs group dog classes in Lorain County, Ohio, serving ",
+            lorain_county_cities!(),
+            ". Classes give dogs structured practice around other dogs and people. Describe your dog's age, temperament, and goals, and Cooper & Co. confirms whether the current group format is appropriate."
+        ),
         audience: "Appropriate for owners who want structured practice around other dogs and people when group settings are a fit.",
         image: PageImage {
             basename: "group-dog-classes-lorain-county",
@@ -884,15 +1011,15 @@ fn home() -> Page {
     <img class="hero-image" src="/assets/cooperco-pet-services-hero.webp" alt="{image_alt}" width="1600" height="900" fetchpriority="high" decoding="async">
   </picture>
   <div class="hero-copy">
-    <p class="eyebrow">Pet service based in Lorain, Ohio</p>
+    <p class="eyebrow">Lorain County, Ohio dog training</p>
     <h1 id="home-title">Cooper &amp; Co. dog training and pet services in Lorain County</h1>
-    <p>Cooper &amp; Co. serves Lorain County, including Elyria, Lorain, Amherst, Avon, and North Ridgeville. Ask about dog training, puppy training, and group dog classes.</p>
+    <p>Dog training, puppy training, and group dog classes for dog owners in {city_list}.</p>
     <div class="hero-actions"><a class="button primary" href="/contact">Request information</a><a class="button secondary" href="tel:{phone_e164}">{phone}</a></div>
   </div>
 </section>
 <section class="section" aria-labelledby="home-services"><div class="section-heading"><p class="eyebrow">Services</p><h2 id="home-services">Dog training and class inquiries</h2><p>Use the current service pages to share dog details, training goals, location, and preferred timing.</p></div><div class="service-grid">{services}</div></section>
 <section class="section split" aria-labelledby="classes-overview"><div><p class="eyebrow">Classes</p><h2 id="classes-overview">Group and puppy training inquiries</h2><p>Use the contact options on this site for current class details and availability.</p></div><article class="update"><span>Current next step</span><h3>Share your goals before booking</h3><p>Use the inquiry form to describe your dog, location, goals, and preferred timeframe.</p><a href="/contact">Contact Cooper &amp; Co.</a></article></section>
-<section class="section" aria-labelledby="area-overview"><div class="section-heading"><p class="eyebrow">Service Area</p><h2 id="area-overview">Serving Lorain County</h2><p>Cooper &amp; Co. serves Lorain County, including Elyria, Lorain, Amherst, Avon, and North Ridgeville.</p></div><div class="service-grid"><article class="card"><h3><a href="/service-areas">Lorain County</a></h3><p>Review the current service-area page before sending an inquiry.</p></article><article class="card"><h3><a href="/contact">Ask about your location</a></h3><p>Include your city or ZIP code so Cooper &amp; Co. can respond with current fit.</p></article><article class="card"><h3><a href="tel:{phone_e164}">{phone}</a></h3><p>Call or text the listed business phone number for direct contact.</p></article></div></section>
+<section class="section" aria-labelledby="area-overview"><div class="section-heading"><p class="eyebrow">Service Area</p><h2 id="area-overview">Serving every Lorain County city</h2><p>Cooper &amp; Co. is a Lorain County business working with dog owners in {city_list}, and in the county's villages. Include your city or ZIP code when you get in touch.</p></div>{city_links}<p><a class="button secondary on-light" href="/service-areas">See the full Lorain County service area</a></p></section>
 <section class="section" aria-labelledby="process"><div class="section-heading"><p class="eyebrow">Process</p><h2 id="process">How inquiries work</h2></div><div class="service-grid"><article class="card"><h3>1. Send details</h3><p>Provide your contact details, city or ZIP code, pet age, service interest, and goals.</p></article><article class="card"><h3>2. Confirm fit</h3><p>Cooper &amp; Co. can confirm availability, class fit, and any requirements directly.</p></article><article class="card"><h3>3. Plan next steps</h3><p>You receive the appropriate scheduling or follow-up path from the business.</p></article></div></section>
 <section class="section trust-section" aria-labelledby="contact-options"><div class="section-heading"><p class="eyebrow">Contact</p><h2 id="contact-options">Use the listed contact options</h2><p>The website publishes Cooper &amp; Co.'s business name, Lorain County service area, phone number, email, Facebook page, and Yelp listing.</p></div></section>
 <section class="section faq" aria-labelledby="home-faq"><div class="section-heading"><p class="eyebrow">FAQ</p><h2 id="home-faq">Common questions</h2></div>{faq}</section>
@@ -900,12 +1027,14 @@ fn home() -> Page {
 {contact_section}
 "#,
         image_alt = SOCIAL_IMAGE_ALT,
+        city_list = CITY_LIST,
+        city_links = city_links_markup(),
         phone_e164 = BUSINESS.phone_e164,
         phone = BUSINESS.phone,
         services = services,
         resources = resources,
         faq = faq_markup(&[
-            FaqItem { question: "Where does Cooper & Co. serve?", answer: "Cooper & Co. serves Lorain County, including Elyria, Lorain, Amherst, Avon, and North Ridgeville." },
+            FaqItem { question: "Where does Cooper & Co. serve?", answer: WHERE_WE_SERVE },
             FaqItem { question: "Which services are published on the website?", answer: "The published service pages are dog training, puppy training, and group dog classes." },
             FaqItem { question: "How do I ask about my location?", answer: "Include your city or ZIP code in the inquiry form so Cooper & Co. can respond with current fit." },
         ]),
@@ -915,7 +1044,7 @@ fn home() -> Page {
     Page {
         path: "/".to_owned(),
         title: "Cooper & Co. | Dog Training in Lorain County, Ohio".to_owned(),
-        description: "Cooper & Co. serves Lorain County, including Elyria, Lorain, Amherst, Avon, and North Ridgeville. Ask about dog training and classes.".to_owned(),
+        description: "Dog training, puppy training, and group dog classes in Lorain County, Ohio, serving Elyria, Lorain, North Ridgeville, Avon Lake, Avon, and Amherst.".to_owned(),
         h1: "Cooper & Co. dog training and pet services in Lorain County".to_owned(),
         body,
         breadcrumbs: vec![("Home", "/".to_owned())],
@@ -932,7 +1061,11 @@ fn about() -> Page {
         "About Cooper & Co. | Dog Training in Lorain County",
         "Learn how to reach Cooper & Co. about dog training, puppy training, and group dog classes in Lorain County, Ohio, and what to include in a first inquiry.",
         "About Cooper & Co.",
-        "Cooper & Co. serves Lorain County, including Elyria, Lorain, Amherst, Avon, and North Ridgeville. Use the listed phone, email, Facebook, Yelp, or inquiry form to ask about dog training, puppy training, and group dog classes.",
+        concat!(
+            "Cooper & Co. is a Lorain County, Ohio business serving ",
+            lorain_county_cities!(),
+            ". Use the listed phone, email, Facebook, Yelp, or inquiry form to ask about dog training, puppy training, and group dog classes."
+        ),
         "AboutPage",
     )
 }
@@ -966,11 +1099,14 @@ fn service_page(service: &ServiceDefinition) -> Page {
         r#"<section class="section page-hero" aria-labelledby="service-title"><p class="eyebrow">Service</p><h1 id="service-title">{h1}</h1><p class="answer">{answer}</p><p>{summary}</p><div class="hero-actions"><a class="button primary" href="/contact">Request information</a><a class="button secondary on-light" href="tel:{phone_e164}">{phone}</a></div>{figure}</section>
 <section class="section" aria-labelledby="service-fit"><div class="section-heading"><p class="eyebrow">Fit</p><h2 id="service-fit">Who this may help</h2><p>{audience}</p></div></section>
 <section class="section split" aria-labelledby="service-process"><div><p class="eyebrow">Process</p><h2 id="service-process">Expected inquiry process</h2>{process}</div><div><p class="eyebrow">Prepare</p><h2>What to share</h2>{prepare}</div></section>
-<section class="section" aria-labelledby="availability"><div class="section-heading"><p class="eyebrow">Availability</p><h2 id="availability">Lorain County service area</h2><p>Cooper &amp; Co. serves Lorain County, including Elyria, Lorain, Amherst, Avon, and North Ridgeville. Include your city or ZIP code when you ask about fit.</p></div><a class="button secondary on-light" href="/service-areas">View service area</a></section>
+<section class="section" aria-labelledby="availability"><div class="section-heading"><p class="eyebrow">Availability</p><h2 id="availability">{service_name} across Lorain County</h2><p>Cooper &amp; Co. works with dog owners in {city_list}. Include your city or ZIP code when you ask about fit.</p></div>{city_links}<p><a class="button secondary on-light" href="/service-areas">View the full service area</a></p></section>
 <section class="section faq" aria-labelledby="service-faq"><div class="section-heading"><p class="eyebrow">FAQ</p><h2 id="service-faq">Service questions</h2></div>{faq}</section>
 <section class="section" aria-labelledby="related"><div class="section-heading"><p class="eyebrow">Resources</p><h2 id="related">Related resources</h2></div><div class="service-grid">{related}</div></section>
 {contact}"#,
         h1 = escape(&service_h1(service)),
+        service_name = escape(service.name),
+        city_list = CITY_LIST,
+        city_links = city_links_markup(),
         answer = escape(service.answer),
         summary = escape(service.summary),
         figure = figure_markup(&service.image, true),
@@ -1015,20 +1151,43 @@ fn service_h1(service: &ServiceDefinition) -> String {
 }
 
 fn service_areas_index() -> Page {
-    let areas = SERVICE_AREAS
+    let cities = SERVICE_AREAS
         .iter()
-        .map(|area| format!("<li>{}</li>", escape(area.name)))
+        .filter(|area| area.kind == AreaKind::City)
+        .map(|area| {
+            format!(
+                r#"<article class="card" id="{slug}"><h3>{display}</h3><p>{note}</p><p>Dog training, puppy training, and group dog classes for {name} dog owners. <a href="/contact">Ask about {name}</a></p></article>"#,
+                slug = area.slug,
+                display = escape(&area.display_name()),
+                note = escape(area.note),
+                name = escape(area.name),
+            )
+        })
+        .collect::<String>();
+    let villages = SERVICE_AREAS
+        .iter()
+        .filter(|area| area.kind == AreaKind::Village)
+        .map(|area| {
+            format!(
+                r#"<li id="{slug}"><strong>{display}</strong>: {note}</li>"#,
+                slug = area.slug,
+                display = escape(&area.display_name()),
+                note = escape(area.note),
+            )
+        })
         .collect::<String>();
     let body = format!(
-        r#"<section class="section page-hero" aria-labelledby="areas-title"><p class="eyebrow">Service Areas</p><h1 id="areas-title">Cooper &amp; Co. service area</h1><p>Cooper &amp; Co. serves Lorain County, including Elyria, Lorain, Amherst, Avon, and North Ridgeville.</p></section><section class="section"><div class="section-heading"><h2>Lorain County communities listed on this site</h2><p>Include your city or ZIP code when sending an inquiry.</p></div><ul>{areas}</ul></section>{contact}"#,
-        areas = areas,
+        r#"<section class="section page-hero" aria-labelledby="areas-title"><p class="eyebrow">Service Areas</p><h1 id="areas-title">Dog training across Lorain County, Ohio</h1><p class="answer">Cooper &amp; Co. is a Lorain County business offering dog training, puppy training, and group dog classes to dog owners in {city_list}, and in the county's villages.</p></section><section class="section" aria-labelledby="areas-cities"><div class="section-heading"><h2 id="areas-cities">Lorain County cities</h2><p>Include your city or ZIP code when sending an inquiry.</p></div><div class="service-grid">{cities}</div></section><section class="section" aria-labelledby="areas-villages"><div class="section-heading"><h2 id="areas-villages">Lorain County villages</h2><p>Live between the cities? Ask about your location directly.</p></div><ul>{villages}</ul></section>{contact}"#,
+        city_list = CITY_LIST,
+        cities = cities,
+        villages = villages,
         contact = contact_section("Confirm service availability in your city")
     );
     Page {
         path: "/service-areas".to_owned(),
-        title: "Service Areas in Lorain County | Cooper & Co.".to_owned(),
-        description: "Cooper & Co. serves Lorain County, Ohio, including Elyria, Lorain, Amherst, Avon, and North Ridgeville. Include your city or ZIP code in your inquiry.".to_owned(),
-        h1: "Cooper & Co. service area".to_owned(),
+        title: "Dog Training Across Lorain County, Ohio | Cooper & Co.".to_owned(),
+        description: "Cooper & Co. serves Elyria, Lorain, North Ridgeville, Avon Lake, Avon, Amherst, Oberlin, Sheffield Lake and Vermilion in Lorain County, Ohio.".to_owned(),
+        h1: "Dog training across Lorain County, Ohio".to_owned(),
         body,
         breadcrumbs: vec![
             ("Home", "/".to_owned()),
@@ -1130,7 +1289,7 @@ fn faq_page() -> Page {
         r#"<section class="section page-hero" aria-labelledby="faq-title"><p class="eyebrow">FAQ</p><h1 id="faq-title">Cooper &amp; Co. questions</h1><p>Use these answers to decide what to include when contacting Cooper &amp; Co.</p></section><section class="section faq">{faq}</section>{contact}"#,
         faq = faq_markup(&[
             FaqItem { question: "What services are listed?", answer: "The website lists dog training, puppy training, and group dog classes." },
-            FaqItem { question: "Where does Cooper & Co. serve?", answer: "Cooper & Co. serves Lorain County, including Elyria, Lorain, Amherst, Avon, and North Ridgeville." },
+            FaqItem { question: "Where does Cooper & Co. serve?", answer: WHERE_WE_SERVE },
             FaqItem { question: "Are hours or prices published?", answer: "The website does not publish fixed hours or prices. Use the contact form, phone, or email for current details." },
             FaqItem { question: "What should I send?", answer: "Send your contact details, city or ZIP code, pet name and age, service interest, goals, and preferred timeframe." },
         ]),
@@ -1147,7 +1306,7 @@ fn faq_page() -> Page {
             webpage_schema("/faq", "WebPage"),
             faq_schema("/faq", &[
                 FaqItem { question: "What services are listed?", answer: "The website lists dog training, puppy training, and group dog classes." },
-                FaqItem { question: "Where does Cooper & Co. serve?", answer: "Cooper & Co. serves Lorain County, including Elyria, Lorain, Amherst, Avon, and North Ridgeville." },
+                FaqItem { question: "Where does Cooper & Co. serve?", answer: WHERE_WE_SERVE },
                 FaqItem { question: "Are hours or prices published?", answer: "The website does not publish fixed hours or prices. Use the contact form, phone, or email for current details." },
                 FaqItem { question: "What should I send?", answer: "Send your contact details, city or ZIP code, pet name and age, service interest, goals, and preferred timeframe." },
             ]),
@@ -1350,7 +1509,7 @@ fn header() -> String {
 fn footer() -> String {
     format!(
         r#"<footer><span>Cooper &amp; Co. · {city}, {state} · <a href="tel:{phone_e164}">{phone}</a></span><a href="/privacy">Privacy</a><a href="/accessibility">Accessibility</a><a href="{facebook}" rel="noreferrer">Facebook</a></footer>"#,
-        city = BUSINESS.home_city,
+        city = BUSINESS.county,
         state = BUSINESS.state,
         phone_e164 = BUSINESS.phone_e164,
         phone = BUSINESS.phone,
@@ -1478,6 +1637,23 @@ fn resource_card(article: &ResourceArticle) -> String {
         title = escape(article.title),
         description = escape(article.description)
     )
+}
+
+/// Links to each city's card on `/service-areas`, so every page that names the
+/// service area also points at the place it is described.
+fn city_links_markup() -> String {
+    let links = SERVICE_AREAS
+        .iter()
+        .filter(|area| area.kind == AreaKind::City)
+        .map(|area| {
+            format!(
+                r#"<li><a href="/service-areas#{slug}">{display}</a></li>"#,
+                slug = area.slug,
+                display = escape(&area.display_name()),
+            )
+        })
+        .collect::<String>();
+    format!(r#"<ul class="city-links">{links}</ul>"#)
 }
 
 fn list_markup(items: &[&str]) -> String {
@@ -1659,7 +1835,7 @@ fn service_area_schema() -> Vec<Value> {
     areas.extend(SERVICE_AREAS.iter().map(|area| {
         json!({
             "@type": "City",
-            "name": area.name,
+            "name": area.display_name(),
             "containedInPlace": format!("{}, {}", BUSINESS.county, BUSINESS.state)
         })
     }));
@@ -2319,6 +2495,51 @@ mod tests {
                 rendered.contains(&escape(article.answer)),
                 "{} renders no answer",
                 article.slug
+            );
+        }
+    }
+
+    #[test]
+    fn city_list_names_every_registered_city_in_order() {
+        let cities = SERVICE_AREAS
+            .iter()
+            .filter(|area| area.kind == AreaKind::City)
+            .map(|area| area.name)
+            .collect::<Vec<_>>();
+        let (head, last) = cities.split_at(cities.len() - 1);
+        let expected = format!("{}, and {}", head.join(", "), last[0]);
+        assert_eq!(CITY_LIST, expected, "update lorain_county_cities!()");
+    }
+
+    #[test]
+    fn service_area_page_anchors_every_registered_community() {
+        let _guard = crate::ENV_LOCK
+            .lock()
+            .unwrap_or_else(|error| error.into_inner());
+        let areas = render_page(&service_areas_index());
+        let home = render_page(&home());
+        let graph = json_ld_blocks(&home).join("");
+        for area in SERVICE_AREAS {
+            assert!(
+                areas.contains(&format!(r#"id="{}""#, area.slug)),
+                "{} has no anchor on /service-areas",
+                area.slug
+            );
+            assert!(
+                graph.contains(&area.display_name()),
+                "{} missing from areaServed",
+                area.slug
+            );
+            assert_eq!(
+                obsolete_redirect(&format!("/service-areas/{}", area.slug)),
+                Some("/service-areas")
+            );
+        }
+        for area in SERVICE_AREAS.iter().filter(|a| a.kind == AreaKind::City) {
+            assert!(
+                home.contains(&format!("/service-areas#{}", area.slug)),
+                "homepage does not link {}",
+                area.slug
             );
         }
     }
