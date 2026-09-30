@@ -6,7 +6,7 @@ It defines:
 
 - Business profile fields.
 - Confirmed services.
-- The consolidated Lorain County service-area page.
+- Lorain County service areas (`SERVICE_AREAS`, `CITY_LIST`) and the consolidated service-area page.
 - Resource articles.
 - Route-specific metadata.
 - JSON-LD.
@@ -20,6 +20,6 @@ Every page's JSON-LD graph is self-contained: `render_page()` emits the organiza
 
 `frontend/public/robots.txt` and `frontend/public/sitemap.xml` are fallbacks for deployments that serve `dist` directly. A test pins them to the generated output; regenerate them from a running server rather than editing them by hand.
 
-Indexable routes must exist in `indexable_paths()` and have a matching `page_for_path()` renderer. Individual city pages are not generated; the service-area page lists Lorain County and the current city examples used on the visible site.
+Indexable routes must exist in `indexable_paths()` and have a matching `page_for_path()` renderer. Individual city pages are not generated. `/service-areas` gives every Lorain County city an anchored card (`/service-areas#elyria-oh`); the homepage and service pages link to those anchors. See `docs/SERVICE_AREAS.md`.
 
 The Yew frontend is now enhancement and admin UI. Search engines do not need WebAssembly to see essential public content.
